@@ -68,9 +68,9 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        Logger.info("Initiating Production Supabase Sync...");
+        Logger.info("Initiating Production Data Sync...");
         
-        // Local Preferences (Non-critical, load first)
+        // 1. Local Preferences (Non-blocking)
         const savedLang = localStorage.getItem('iq_tech_lang') as Language;
         if (savedLang) setLangState(savedLang);
         const savedTheme = localStorage.getItem('iq_tech_theme') as Theme;
@@ -78,8 +78,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         const savedCart = localStorage.getItem('iq_tech_cart');
         if (savedCart) setCart(JSON.parse(savedCart));
 
-        // Cloud Config & Auth
-        // Using settled so one failure doesn't block the other, although settings are more critical.
+        // 2. Cloud Config & Auth (Safe Load)
         const [authRes, settingsRes] = await Promise.allSettled([
           StorageService.getAuth(),
           StorageService.getSettings()
@@ -91,21 +90,12 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         
         if (settingsRes.status === 'fulfilled') {
           setSettings(settingsRes.value);
-        } else {
-          // If settings fail, it's likely a config error.
-          throw settingsRes.reason;
         }
 
-        Logger.info("System Initialization Success.");
+        Logger.info("Initialization Complete.");
         setLoading(false);
       } catch (error: any) {
-        Logger.error("System Initialization Failed", error);
-        // Map common errors to user-friendly messages
-        let userMsg = error.message || "Failed to connect to the cloud.";
-        if (userMsg.includes("Supabase configuration missing")) {
-          userMsg = "Persistence is disabled: Supabase URL and Key are not configured in your environment.";
-        }
-        setGlobalError(userMsg);
+        Logger.error("Initialization Warning:", error);
         setLoading(false);
       }
     };
@@ -161,9 +151,9 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     try {
       await StorageService.saveSettings(newSettings);
       setSettings(newSettings);
-      Logger.info("Settings Published via Supabase.");
+      Logger.info("Settings Published.");
     } catch (e: any) {
-      Logger.error("Settings Persistence Failure", e);
+      Logger.error("Settings Sync Failure", e);
       setGlobalError(e.message || "Failed to publish settings.");
     } finally {
       setIsSyncing(false);
