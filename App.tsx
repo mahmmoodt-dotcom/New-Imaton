@@ -3,11 +3,9 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Language, CartItem, Product, Category, Order, AppSettings, Theme } from './types';
 import { translations } from './translations';
-// FIX: Updated import to use StorageService instead of ApiService
 import { StorageService } from './store';
 import { INITIAL_SETTINGS } from './constants';
 
-// FIX: Added missing imports for UI components and pages used in Routes
 import Layout from './components/Layout';
 import HomePage from './pages/Home';
 import ShopPage from './pages/Shop';
@@ -21,11 +19,11 @@ import ProductsAdmin from './pages/Admin/Products';
 import OrdersAdmin from './pages/Admin/Orders';
 import SettingsAdmin from './pages/Admin/Settings';
 
-// Simple Logger Utility
+// Centralized Frontend Logger
 export const Logger = {
-  info: (msg: string, data?: any) => console.log(`[INFO] ${new Date().toISOString()}: ${msg}`, data || ''),
-  error: (msg: string, err?: any) => console.error(`[ERROR] ${new Date().toISOString()}: ${msg}`, err || ''),
-  warn: (msg: string, data?: any) => console.warn(`[WARN] ${new Date().toISOString()}: ${msg}`, data || ''),
+  info: (msg: string, data?: any) => console.log(`%c[INFO] ${new Date().toLocaleTimeString()}: ${msg}`, 'color: #2563eb', data || ''),
+  error: (msg: string, err?: any) => console.error(`%c[ERROR] ${new Date().toLocaleTimeString()}: ${msg}`, 'color: #dc2626', err || ''),
+  warn: (msg: string, data?: any) => console.warn(`%c[WARN] ${new Date().toLocaleTimeString()}: ${msg}`, 'color: #d97706', data || ''),
 };
 
 interface AppContextType {
@@ -43,6 +41,8 @@ interface AppContextType {
   settings: AppSettings;
   updateSettings: (s: AppSettings) => void;
   isSyncing: boolean;
+  globalError: string | null;
+  setGlobalError: (err: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -61,37 +61,51 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isLoggedIn, setIsLoggedInState] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
   const t = translations[lang];
 
-  // Initialize App from API
   useEffect(() => {
     const initApp = async () => {
       try {
-        Logger.info("Connecting to Imation Cloud...");
-        // FIX: Updated to use StorageService
-        const [savedAuth, savedSettings] = await Promise.all([
+        Logger.info("Initiating Production Supabase Sync...");
+        
+        // Local Preferences (Non-critical, load first)
+        const savedLang = localStorage.getItem('iq_tech_lang') as Language;
+        if (savedLang) setLangState(savedLang);
+        const savedTheme = localStorage.getItem('iq_tech_theme') as Theme;
+        if (savedTheme) setThemeState(savedTheme);
+        const savedCart = localStorage.getItem('iq_tech_cart');
+        if (savedCart) setCart(JSON.parse(savedCart));
+
+        // Cloud Config & Auth
+        // Using settled so one failure doesn't block the other, although settings are more critical.
+        const [authRes, settingsRes] = await Promise.allSettled([
           StorageService.getAuth(),
           StorageService.getSettings()
         ]);
         
-        setIsLoggedInState(savedAuth.isLoggedIn);
-        setSettings(savedSettings);
+        if (authRes.status === 'fulfilled') {
+          setIsLoggedInState(authRes.value.isLoggedIn);
+        }
         
-        // Load UI Prefs
-        const savedLang = localStorage.getItem('iq_tech_lang') as Language;
-        if (savedLang) setLangState(savedLang);
-        
-        const savedTheme = localStorage.getItem('iq_tech_theme') as Theme;
-        if (savedTheme) setThemeState(savedTheme);
+        if (settingsRes.status === 'fulfilled') {
+          setSettings(settingsRes.value);
+        } else {
+          // If settings fail, it's likely a config error.
+          throw settingsRes.reason;
+        }
 
-        const savedCart = localStorage.getItem('iq_tech_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-
+        Logger.info("System Initialization Success.");
         setLoading(false);
-        Logger.info("Cloud synchronization complete.");
-      } catch (error) {
-        Logger.error("Failed to initialize app from cloud", error);
+      } catch (error: any) {
+        Logger.error("System Initialization Failed", error);
+        // Map common errors to user-friendly messages
+        let userMsg = error.message || "Failed to connect to the cloud.";
+        if (userMsg.includes("Supabase configuration missing")) {
+          userMsg = "Persistence is disabled: Supabase URL and Key are not configured in your environment.";
+        }
+        setGlobalError(userMsg);
         setLoading(false);
       }
     };
@@ -103,12 +117,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, [cart]);
 
   useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
+    document.documentElement.classList.toggle('dark', theme === 'dark');
     localStorage.setItem('iq_tech_theme', theme);
   }, [theme]);
 
@@ -118,14 +127,16 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   };
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setThemeState(newTheme);
+    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
   };
 
   const setIsLoggedIn = async (v: boolean) => {
     setIsLoggedInState(v);
-    // FIX: Updated to use StorageService
-    await StorageService.setAuth({ isLoggedIn: v });
+    try {
+      await StorageService.setAuth({ isLoggedIn: v });
+    } catch (e) {
+      Logger.error("Supabase Auth Sync Error", e);
+    }
   };
 
   const addToCart = (product: Product) => {
@@ -142,23 +153,31 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     setCart(prev => prev.filter(item => item.productId !== productId));
   };
 
-  const clearCart = () => {
-    setCart([]);
-  };
+  const clearCart = () => setCart([]);
 
   const updateSettings = async (newSettings: AppSettings) => {
     setIsSyncing(true);
-    setSettings(newSettings);
-    // FIX: Updated to use StorageService
-    await StorageService.saveSettings(newSettings);
-    setIsSyncing(false);
+    setGlobalError(null);
+    try {
+      await StorageService.saveSettings(newSettings);
+      setSettings(newSettings);
+      Logger.info("Settings Published via Supabase.");
+    } catch (e: any) {
+      Logger.error("Settings Persistence Failure", e);
+      setGlobalError(e.message || "Failed to publish settings.");
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-[#0f1115] flex flex-col items-center justify-center space-y-8">
-        <div className="w-16 h-16 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
-        <p className="text-gray-500 font-black uppercase tracking-[0.3em] animate-pulse">Imation Cloud Syncing...</p>
+      <div className="min-h-screen bg-white dark:bg-[#0f1115] flex flex-col items-center justify-center">
+        <div className="relative">
+          <div className="w-24 h-24 border-4 border-brand/20 rounded-full"></div>
+          <div className="absolute inset-0 w-24 h-24 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
+        </div>
+        <p className="mt-8 text-gray-500 font-black uppercase tracking-[0.4em] animate-pulse text-xs">Authenticating...</p>
       </div>
     );
   }
@@ -166,12 +185,18 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return (
     <AppContext.Provider value={{ 
       lang, setLang, theme, toggleTheme, t, cart, addToCart, removeFromCart, clearCart, 
-      isLoggedIn, setIsLoggedIn, settings, updateSettings, isSyncing
+      isLoggedIn, setIsLoggedIn, settings, updateSettings, isSyncing, globalError, setGlobalError
     }}>
       <div 
         dir={lang !== 'en' ? 'rtl' : 'ltr'}
-        className={`${lang !== 'en' ? 'rtl font-arabic' : 'font-inter'} transition-colors duration-200`}
+        className={`${lang !== 'en' ? 'rtl font-arabic' : 'font-inter'} transition-colors duration-200 min-h-screen flex flex-col`}
       >
+        {globalError && (
+          <div className="bg-brand text-white py-3 px-6 text-center font-black text-[10px] uppercase tracking-[0.3em] fixed top-0 w-full z-[1000] flex justify-center items-center gap-6 animate-in slide-in-from-top shadow-xl">
+            <span className="flex-grow">{globalError}</span>
+            <button onClick={() => setGlobalError(null)} className="px-4 py-1 bg-white/20 rounded-full hover:bg-white/40 transition-all">Dismiss</button>
+          </div>
+        )}
         {children}
       </div>
     </AppContext.Provider>
@@ -185,9 +210,7 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, [pathname]);
+  useEffect(() => window.scrollTo(0, 0), [pathname]);
   return null;
 };
 
@@ -209,6 +232,8 @@ const App: React.FC = () => {
           <Route path="/admin/products" element={<ProtectedRoute><ProductsAdmin /></ProtectedRoute>} />
           <Route path="/admin/orders" element={<ProtectedRoute><OrdersAdmin /></ProtectedRoute>} />
           <Route path="/admin/settings" element={<ProtectedRoute><SettingsAdmin /></ProtectedRoute>} />
+          
+          <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </Router>
     </AppProvider>

@@ -46,13 +46,15 @@ const CategoriesAdmin: React.FC = () => {
       } else {
         newCategories.push(categoryData);
       }
-      await StorageService.saveCategories(newCategories);
-      setCategories(newCategories);
+      
+      // Save and receive finalized items with Storage URLs
+      const response = await StorageService.saveCategories(newCategories);
+      setCategories(response);
       closeModal();
-      Logger.info(`Category ${editingId ? 'updated' : 'added'} successfully`);
+      Logger.info(`Category processed and persisted to Storage.`);
     } catch (err) {
       Logger.error("Failed to save category", err);
-      alert("Error saving category. Please try again.");
+      alert("Error saving category. Check your internet connection.");
     }
   };
 
@@ -141,11 +143,6 @@ const CategoriesAdmin: React.FC = () => {
               </div>
             </div>
           ))}
-          {categories.length === 0 && (
-            <div className="col-span-full py-20 text-center bg-white dark:bg-gray-800 rounded-[2.5rem] border-2 border-dashed border-gray-100 dark:border-gray-700">
-               <p className="text-gray-400 font-bold">No categories yet. Click "Add Category" to start.</p>
-            </div>
-          )}
         </div>
       </div>
 

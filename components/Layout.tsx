@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { ShoppingCart, Menu, X, Globe, User, Package, HelpCircle, Home, Search, Instagram, Facebook, Phone, Moon, Sun } from 'lucide-react';
+import { ShoppingCart, Menu, X, Globe, User, Package, HelpCircle, Home, Search, Instagram, Facebook, Phone, Moon, Sun, Cloud, CloudOff } from 'lucide-react';
 import { useApp, Logger } from '../App';
 import { Language } from '../types';
 
@@ -17,7 +17,7 @@ const TikTokIcon = ({ size = 20 }: { size?: number }) => (
 );
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { lang, setLang, theme, toggleTheme, t, cart, settings } = useApp();
+  const { lang, setLang, theme, toggleTheme, t, cart, settings, globalError, isSyncing } = useApp();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const langRef = useRef<HTMLDivElement>(null);
@@ -31,8 +31,9 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   ];
 
   useEffect(() => {
-    Logger.info("UI Consistency: Layout initialized with windowy-glass and unified background.");
-  }, []);
+    setMobileMenuOpen(false);
+    setLangMenuOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -65,9 +66,18 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               <span className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-brand to-brand-dark tracking-tighter">
                 Imation
               </span>
+              <div className="ml-3 hidden sm:flex items-center">
+                {isSyncing ? (
+                  <div className="w-1.5 h-1.5 bg-brand rounded-full animate-pulse shadow-[0_0_8px_rgba(227,27,35,1)]"></div>
+                ) : globalError ? (
+                  <CloudOff size={12} className="text-gray-400" />
+                ) : (
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_8px_rgba(34,197,94,1)]"></div>
+                )}
+              </div>
             </Link>
 
-            {/* Desktop Nav - Using gap instead of space-x for better RTL support */}
+            {/* Desktop Nav */}
             <div className="hidden md:flex items-center gap-8">
               {navLinks.map((link) => (
                 <Link 
@@ -85,7 +95,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               ))}
             </div>
 
-            {/* Action Icons - Using gap instead of space-x */}
+            {/* Action Icons */}
             <div className="flex items-center gap-2 sm:gap-4">
               <button 
                 onClick={toggleTheme}
@@ -145,13 +155,12 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden windowy-glass border-t border-white/5 transition-all">
+          <div className="md:hidden windowy-glass border-t border-white/5 transition-all animate-in slide-in-from-top duration-300">
             <div className="px-4 py-6 space-y-2">
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
                   to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
                   className={`block px-6 py-4 rounded-2xl text-base font-bold transition-all ${
                     location.pathname === link.path ? 'bg-brand/10 text-brand' : 'text-gray-700 dark:text-gray-200 hover:bg-white/10'
                   }`}
@@ -172,7 +181,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         {children}
       </main>
 
-      {/* Footer - Optimized Spacing and TikTok Icon */}
+      {/* Footer */}
       <footer className="app-container border-t border-gray-100 dark:border-gray-800 pt-8 pb-6 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
@@ -205,7 +214,6 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
               </div>
             </div>
           </div>
-          {/* Substantially reduced gaps as requested */}
           <div className="mt-6 pt-6 border-t border-gray-100 dark:border-gray-800 text-center text-[10px] text-gray-400 font-black uppercase tracking-[0.3em]">
             &copy; {new Date().getFullYear()} Imation Iraq. Designed for Performance.
           </div>

@@ -35,7 +35,7 @@ const ProductsAdmin: React.FC = () => {
         ]);
         setProducts(prods);
         setCategories(cats);
-        if (cats.length > 0) {
+        if (cats.length > 0 && !formData.categoryId) {
           setFormData(prev => ({ ...prev, categoryId: cats[0].id }));
         }
       } catch (err) {
@@ -83,13 +83,14 @@ const ProductsAdmin: React.FC = () => {
         newProducts.unshift(productData);
       }
       
-      await StorageService.saveProducts(newProducts);
-      setProducts(newProducts);
+      // Send to server and get back processed items with URLs
+      const response = await StorageService.saveProducts(newProducts);
+      setProducts(response);
       closeModal();
-      Logger.info(`Product saved successfully.`);
+      Logger.info(`Product saved and persisted to Firebase Storage.`);
     } catch (err) {
       Logger.error("Failed to save product", err);
-      alert("Error saving product. Please try again.");
+      alert("Error saving product. Please check your connection.");
     }
   };
 
@@ -214,11 +215,6 @@ const ProductsAdmin: React.FC = () => {
               </div>
             </div>
           ))}
-          {filteredProducts.length === 0 && (
-            <div className="col-span-full py-20 text-center bg-white dark:bg-gray-800 rounded-[2.5rem] border-2 border-dashed border-gray-100 dark:border-gray-700">
-               <p className="text-gray-400 font-bold">No products found matching your criteria.</p>
-            </div>
-          )}
         </div>
       </div>
 
