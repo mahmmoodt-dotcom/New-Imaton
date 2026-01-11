@@ -9,19 +9,15 @@ import { INITIAL_SETTINGS } from './constants';
  */
 const getEnv = (key: string): string => {
   try {
-    // Check process.env (common in Node/CRA/some esbuild configs)
     if (typeof process !== 'undefined' && process.env?.[key]) {
       return process.env[key] as string;
     }
-    // Check import.meta.env (Vite / modern ESM)
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env?.[key]) {
       // @ts-ignore
       return import.meta.env[key] as string;
     }
-  } catch (e) {
-    // Silently fail if environments are locked down
-  }
+  } catch (e) {}
   return '';
 };
 
@@ -29,60 +25,39 @@ const SUPABASE_URL = getEnv('VITE_SUPABASE_URL') || getEnv('SUPABASE_URL');
 const SUPABASE_ANON_KEY = getEnv('VITE_SUPABASE_ANON_KEY') || getEnv('SUPABASE_ANON_KEY');
 
 let supabaseInstance: SupabaseClient | null = null;
-const isConfigured = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
 
 /**
  * Singleton getter for Supabase client.
- * Returns null if parameters are missing, allowing services to degrade gracefully.
+ * Returns null if configuration is missing instead of throwing,
+ * allowing services to degrade gracefully.
  */
 const getSupabase = (): SupabaseClient | null => {
-  if (!isConfigured) {
+  if (supabaseInstance) return supabaseInstance;
+
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    console.warn('[SUPABASE_CONFIG] Environment variables missing. Persistence is disabled.');
     return null;
   }
-  if (supabaseInstance) return supabaseInstance;
 
   try {
     supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     return supabaseInstance;
   } catch (e) {
-    console.error('[SUPABASE_INIT_ERROR] Check your cloud database configuration.', e);
+    console.error('[SUPABASE_INIT_ERROR]', e);
     return null;
   }
 };
 
 /**
- * Local Fallback Persistence
- * Ensures the app remains functional in environments where Supabase is not yet configured.
- */
-const getLocal = <T>(key: string, fallback: T): T => {
-  try {
-    const val = localStorage.getItem(`imation_local_${key}`);
-    return val ? JSON.parse(val) : fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-const setLocal = (key: string, data: any) => {
-  try {
-    localStorage.setItem(`imation_local_${key}`, JSON.stringify(data));
-  } catch (e) {
-    console.error('[LOCAL_STORAGE_ERROR] Unable to persist data locally.', e);
-  }
-};
-
-/**
  * Image Upload Utility
- * Uploads to Supabase Storage if configured; otherwise maintains data as base64.
+ * Uploads to Supabase Storage bucket 'products'.
+ * Returns the public URL of the uploaded image.
  */
 const uploadImage = async (base64: string): Promise<string> => {
   if (!base64 || !base64.startsWith('data:')) return base64;
 
   const sb = getSupabase();
-  if (!sb) {
-    console.warn('[STORAGE] Cloud not configured. Using local data URI for media.');
-    return base64; 
-  }
+  if (!sb) return base64; // Fallback to base64 if no cloud storage
 
   try {
     const parts = base64.split(';base64,');
@@ -101,10 +76,10 @@ const uploadImage = async (base64: string): Promise<string> => {
     }
 
     const blob = new Blob(byteArrays, { type: contentType });
-    const extension = contentType.split('/')[1];
-    const fileName = `img_${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
+    const extension = contentType.split('/')[1] || 'png';
+    const fileName = `public/${Date.now()}_${Math.random().toString(36).substring(7)}.${extension}`;
 
-    const { error } = await sb.storage
+    const { data, error } = await sb.storage
       .from('products')
       .upload(fileName, blob, { contentType, upsert: true });
 
@@ -113,33 +88,35 @@ const uploadImage = async (base64: string): Promise<string> => {
     const { data: { publicUrl } } = sb.storage.from('products').getPublicUrl(fileName);
     return publicUrl;
   } catch (err) {
-    console.error('[STORAGE_ERROR] Cloud upload failed, falling back to local encoding:', err);
-    return base64;
+    console.error('[STORAGE_UPLOAD_ERROR]', err);
+    return base64; // Fail gracefully
   }
 };
 
 export const StorageService = {
+  // AUTH
   getAuth: async (): Promise<AuthState> => {
     const sb = getSupabase();
-    if (!sb) return getLocal('auth', { isLoggedIn: false });
+    if (!sb) return { isLoggedIn: false };
     try {
       const { data, error } = await sb.from('config').select('data').eq('key', 'auth').maybeSingle();
-      if (error || !data) return getLocal('auth', { isLoggedIn: false });
-      return data.data;
+      if (error) throw error;
+      return data?.data || { isLoggedIn: false };
     } catch {
-      return getLocal('auth', { isLoggedIn: false });
+      return { isLoggedIn: false };
     }
   },
   setAuth: async (auth: AuthState): Promise<void> => {
-    setLocal('auth', auth);
     const sb = getSupabase();
     if (!sb) return;
-    await sb.from('config').upsert({ key: 'auth', data: auth });
+    const { error } = await sb.from('config').upsert({ key: 'auth', data: auth });
+    if (error) throw error;
   },
 
+  // CATEGORIES
   getCategories: async (): Promise<Category[]> => {
     const sb = getSupabase();
-    if (!sb) return getLocal('categories', []);
+    if (!sb) return [];
     try {
       const { data, error } = await sb.from('categories').select('*').order('created_at', { ascending: true });
       if (error) throw error;
@@ -149,36 +126,33 @@ export const StorageService = {
         image: cat.image
       }));
     } catch {
-      return getLocal('categories', []);
+      return [];
     }
   },
   saveCategories: async (categories: Category[]): Promise<Category[]> => {
-    const processed = await Promise.all(categories.map(async cat => ({
-      id: cat.id,
-      name: cat.name,
-      image: await uploadImage(cat.image)
-    })));
-    
-    setLocal('categories', processed);
     const sb = getSupabase();
-    if (!sb) return processed;
-
-    const dbPayload = processed.map(cat => ({
+    const processed = await Promise.all(categories.map(async cat => ({
       id: cat.id,
       name_en: cat.name.en,
       name_ar: cat.name.ar,
       name_ku: cat.name.ku,
-      image: cat.image,
+      image: await uploadImage(cat.image),
       created_at: new Date().toISOString()
-    }));
-
-    await sb.from('categories').upsert(dbPayload);
-    return processed;
+    })));
+    
+    if (sb) {
+      const { error } = await sb.from('categories').upsert(processed);
+      if (error) throw error;
+      return StorageService.getCategories();
+    }
+    
+    return categories; // Return local if no SB
   },
 
+  // PRODUCTS
   getProducts: async (): Promise<Product[]> => {
     const sb = getSupabase();
-    if (!sb) return getLocal('products', []);
+    if (!sb) return [];
     try {
       const { data, error } = await sb.from('products').select('*').order('created_at', { ascending: false });
       if (error) throw error;
@@ -198,20 +172,12 @@ export const StorageService = {
         createdAt: new Date(p.created_at).getTime()
       }));
     } catch {
-      return getLocal('products', []);
+      return [];
     }
   },
   saveProducts: async (products: Product[]): Promise<Product[]> => {
-    const processed = await Promise.all(products.map(async p => ({
-      ...p,
-      image: await uploadImage(p.image)
-    })));
-
-    setLocal('products', processed);
     const sb = getSupabase();
-    if (!sb) return processed;
-
-    const dbPayload = processed.map(p => ({
+    const processed = await Promise.all(products.map(async p => ({
       id: p.id,
       category_id: p.categoryId,
       name_en: p.name.en,
@@ -225,41 +191,49 @@ export const StorageService = {
       discount: p.discountPrice || 0,
       has_discount: !!p.discountPrice,
       available: p.isAvailable,
-      image: p.image,
+      image: await uploadImage(p.image),
       created_at: new Date(p.createdAt).toISOString()
-    }));
+    })));
 
-    await sb.from('products').upsert(dbPayload);
-    return processed;
+    if (sb) {
+      const { error } = await sb.from('products').upsert(processed);
+      if (error) throw error;
+      return StorageService.getProducts();
+    }
+    
+    return products;
   },
 
+  // SETTINGS
   getSettings: async (): Promise<AppSettings> => {
     const sb = getSupabase();
-    if (!sb) return getLocal('settings', INITIAL_SETTINGS);
+    if (!sb) return INITIAL_SETTINGS;
     try {
       const { data, error } = await sb.from('config').select('data').eq('key', 'settings').maybeSingle();
-      if (error || !data) return getLocal('settings', INITIAL_SETTINGS);
-      return data.data;
+      if (error) throw error;
+      return data?.data || INITIAL_SETTINGS;
     } catch {
-      return getLocal('settings', INITIAL_SETTINGS);
+      return INITIAL_SETTINGS;
     }
   },
   saveSettings: async (settings: AppSettings): Promise<void> => {
+    const sb = getSupabase();
     const processedSettings = {
       ...settings,
       logo: await uploadImage(settings.logo),
       heroImage: await uploadImage(settings.heroImage),
       aboutImage: await uploadImage(settings.aboutImage)
     };
-    setLocal('settings', processedSettings);
-    const sb = getSupabase();
-    if (!sb) return;
-    await sb.from('config').upsert({ key: 'settings', data: processedSettings });
+    if (sb) {
+      const { error } = await sb.from('config').upsert({ key: 'settings', data: processedSettings });
+      if (error) throw error;
+    }
   },
 
+  // ORDERS
   getOrders: async (): Promise<Order[]> => {
     const sb = getSupabase();
-    if (!sb) return getLocal('orders', []);
+    if (!sb) return [];
     try {
       const { data: orders, error: ordersErr } = await sb.from('orders').select('*').order('created_at', { ascending: false });
       if (ordersErr) throw ordersErr;
@@ -296,111 +270,101 @@ export const StorageService = {
         };
       });
     } catch {
-      return getLocal('orders', []);
+      return [];
     }
   },
   getOrderByTracking: async (trackingNo: string): Promise<Order | null> => {
     const sb = getSupabase();
-    if (!sb) {
-      const localOrders = getLocal<Order[]>('orders', []);
-      return localOrders.find(o => o.trackingNumber === trackingNo.toUpperCase()) || null;
-    }
-    const { data: o, error } = await sb.from('orders').select('*').eq('tracking_number', trackingNo.toUpperCase()).maybeSingle();
-    if (error || !o) return null;
-    const { data: items } = await sb.from('order_items').select('*, products(*)').eq('order_id', o.id);
-    const orderItems = items || [];
-    const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    if (!sb) return null;
+    try {
+      const { data: o, error } = await sb.from('orders').select('*').eq('tracking_number', trackingNo.toUpperCase()).maybeSingle();
+      if (error || !o) return null;
+      
+      const { data: items } = await sb.from('order_items').select('*, products(*)').eq('order_id', o.id);
+      const orderItems = items || [];
+      const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    return {
-      id: o.id,
-      invoiceNumber: o.id,
-      trackingNumber: o.tracking_number,
-      customerName: o.customer_name,
-      phoneNumber: o.phone,
-      city: o.city,
-      address: o.address,
-      note: o.note,
-      status: o.status as OrderStatus,
-      deliveryPerson: o.delivery_name,
-      deliveryPhone: o.delivery_phone,
-      createdAt: new Date(o.created_at).getTime(),
-      totalAmount,
-      items: orderItems.map(item => ({
-        productId: item.product_id,
-        quantity: item.quantity,
-        product: {
-          id: item.products.id,
-          name: { en: item.products.name_en, ar: item.products.name_ar, ku: item.products.name_ku },
-          image: item.products.image,
-          price: item.products.price,
-          discountPrice: item.products.has_discount ? item.products.discount : undefined
-        } as any
-      }))
-    };
+      return {
+        id: o.id,
+        invoiceNumber: o.id,
+        trackingNumber: o.tracking_number,
+        customerName: o.customer_name,
+        phoneNumber: o.phone,
+        city: o.city,
+        address: o.address,
+        note: o.note,
+        status: o.status as OrderStatus,
+        deliveryPerson: o.delivery_name,
+        deliveryPhone: o.delivery_phone,
+        createdAt: new Date(o.created_at).getTime(),
+        totalAmount,
+        items: orderItems.map(item => ({
+          productId: item.product_id,
+          quantity: item.quantity,
+          product: {
+            id: item.products.id,
+            name: { en: item.products.name_en, ar: item.products.name_ar, ku: item.products.name_ku },
+            image: item.products.image,
+            price: item.products.price,
+            discountPrice: item.products.has_discount ? item.products.discount : undefined
+          } as any
+        }))
+      };
+    } catch {
+      return null;
+    }
   },
   updateOrderStatus: async (orderId: string, status: OrderStatus, deliveryInfo?: { person?: string, phone?: string }): Promise<Order> => {
     const sb = getSupabase();
-    if (!sb) {
-      const orders = getLocal<Order[]>('orders', []);
-      const idx = orders.findIndex(o => o.id === orderId);
-      if (idx !== -1) {
-        orders[idx].status = status;
-        if (deliveryInfo) {
-          orders[idx].deliveryPerson = deliveryInfo.person;
-          orders[idx].deliveryPhone = deliveryInfo.phone;
-        }
-        setLocal('orders', orders);
-        // Fix: Added non-null assertion as idx is verified to be in bounds.
-        return orders[idx]!;
-      }
-      throw new Error("Order not found");
-    }
+    if (!sb) throw new Error('Cloud persistence unavailable.');
+    
     const updates: any = { status };
     if (deliveryInfo?.person) updates.delivery_name = deliveryInfo.person;
     if (deliveryInfo?.phone) updates.delivery_phone = deliveryInfo.phone;
-    await sb.from('orders').update(updates).eq('id', orderId);
-    // Fix: Replaced lexical 'this' with explicit 'StorageService' reference to fix potential undefined context in arrow functions.
-    return await StorageService.getOrderByTracking(orderId) as Order;
+    
+    const { error } = await sb.from('orders').update(updates).eq('id', orderId);
+    if (error) throw error;
+    
+    const refreshed = await StorageService.getOrderByTracking(orderId);
+    if (!refreshed) throw new Error('Order not found after update');
+    return refreshed;
   },
   submitOrder: async (order: Order): Promise<Order> => {
+    const sb = getSupabase();
+    if (!sb) throw new Error('Cloud persistence unavailable.');
+
     const year = new Date().getFullYear();
     const timestamp = new Date().toISOString();
-    const sb = getSupabase();
-    
-    if (!sb) {
-      const orders = getLocal<Order[]>('orders', []);
-      const trackingNo = `IM-${year}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      const finalized = { ...order, trackingNumber: trackingNo, createdAt: Date.now() };
-      orders.push(finalized);
-      setLocal('orders', orders);
-      return finalized;
-    }
 
-    try {
-      const { data: inserted, error: insertError } = await sb.from('orders').insert({
-        customer_name: order.customerName,
-        phone: order.phoneNumber,
-        city: order.city,
-        address: order.address,
-        note: order.note,
-        status: 'Pending',
-        tracking_number: '', 
-        created_at: timestamp
-      }).select().single();
-      if (insertError) throw insertError;
-      const trackingNo = `IM-${year}-${inserted.id.toString().slice(-6).toUpperCase()}`;
-      const { data: updated, error: updateError } = await sb.from('orders').update({ tracking_number: trackingNo }).eq('id', inserted.id).select().single();
-      if (updateError) throw updateError;
-      const itemInserts = order.items.map(item => ({
-        order_id: inserted.id,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price: item.product.discountPrice || item.product.price
-      }));
-      await sb.from('order_items').insert(itemInserts);
-      return { ...order, id: updated.id, trackingNumber: trackingNo, createdAt: new Date(timestamp).getTime() };
-    } catch (err) {
-      throw err;
-    }
+    const { data: inserted, error: insertError } = await sb.from('orders').insert({
+      customer_name: order.customerName,
+      phone: order.phoneNumber,
+      city: order.city,
+      address: order.address,
+      note: order.note,
+      status: 'Pending',
+      tracking_number: '', 
+      created_at: timestamp
+    }).select().single();
+
+    if (insertError) throw insertError;
+
+    const trackingNo = `IM-${year}-${inserted.id.toString().slice(-6).toUpperCase()}`;
+    const { data: updated, error: updateError } = await sb.from('orders').update({ tracking_number: trackingNo }).eq('id', inserted.id).select().single();
+    if (updateError) throw updateError;
+
+    const itemInserts = order.items.map(item => ({
+      order_id: inserted.id,
+      product_id: item.productId,
+      quantity: item.quantity,
+      price: item.product.discountPrice || item.product.price
+    }));
+
+    const { error: itemsError } = await sb.from('order_items').insert(itemInserts);
+    if (itemsError) throw itemsError;
+
+    const finalOrder = await StorageService.getOrderByTracking(trackingNo);
+    if (!finalOrder) throw new Error('Failed to retrieve submitted order');
+    return finalOrder;
   }
 };

@@ -68,17 +68,9 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        Logger.info("Initiating Production Data Sync...");
+        Logger.info("Initiating Production Data Sync from Supabase...");
         
-        // 1. Local Preferences (Non-blocking)
-        const savedLang = localStorage.getItem('iq_tech_lang') as Language;
-        if (savedLang) setLangState(savedLang);
-        const savedTheme = localStorage.getItem('iq_tech_theme') as Theme;
-        if (savedTheme) setThemeState(savedTheme);
-        const savedCart = localStorage.getItem('iq_tech_cart');
-        if (savedCart) setCart(JSON.parse(savedCart));
-
-        // 2. Cloud Config & Auth (Safe Load)
+        // Hydrate configuration and auth state purely from Supabase
         const [authRes, settingsRes] = await Promise.allSettled([
           StorageService.getAuth(),
           StorageService.getSettings()
@@ -92,10 +84,10 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           setSettings(settingsRes.value);
         }
 
-        Logger.info("Initialization Complete.");
-        setLoading(false);
+        Logger.info("Supabase Hydration Complete.");
       } catch (error: any) {
-        Logger.error("Initialization Warning:", error);
+        Logger.warn("Supabase Hydration limited. Using default settings.", error);
+      } finally {
         setLoading(false);
       }
     };
@@ -103,22 +95,11 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('iq_tech_cart', JSON.stringify(cart));
-  }, [cart]);
-
-  useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('iq_tech_theme', theme);
   }, [theme]);
 
-  const setLang = (l: Language) => {
-    setLangState(l);
-    localStorage.setItem('iq_tech_lang', l);
-  };
-
-  const toggleTheme = () => {
-    setThemeState(prev => prev === 'light' ? 'dark' : 'light');
-  };
+  const setLang = (l: Language) => setLangState(l);
+  const toggleTheme = () => setThemeState(prev => prev === 'light' ? 'dark' : 'light');
 
   const setIsLoggedIn = async (v: boolean) => {
     setIsLoggedInState(v);
@@ -151,7 +132,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     try {
       await StorageService.saveSettings(newSettings);
       setSettings(newSettings);
-      Logger.info("Settings Published.");
+      Logger.info("Settings Published via Supabase.");
     } catch (e: any) {
       Logger.error("Settings Sync Failure", e);
       setGlobalError(e.message || "Failed to publish settings.");
@@ -167,7 +148,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="w-24 h-24 border-4 border-brand/20 rounded-full"></div>
           <div className="absolute inset-0 w-24 h-24 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <p className="mt-8 text-gray-500 font-black uppercase tracking-[0.4em] animate-pulse text-xs">Authenticating...</p>
+        <p className="mt-8 text-gray-500 font-black uppercase tracking-[0.4em] animate-pulse text-xs">Connecting to Cloud...</p>
       </div>
     );
   }
