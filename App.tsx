@@ -4,8 +4,8 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'reac
 import { Language, CartItem, Product, Category, Order, AppSettings, Theme } from './types';
 import { translations } from './translations';
 import { StorageService } from './store';
-import { INITIAL_SETTINGS } from './constants';
 
+// Adding missing imports for components and pages used in the main App router
 import Layout from './components/Layout';
 import HomePage from './pages/Home';
 import ShopPage from './pages/Shop';
@@ -38,7 +38,7 @@ interface AppContextType {
   clearCart: () => void;
   isLoggedIn: boolean;
   setIsLoggedIn: (v: boolean) => void;
-  settings: AppSettings;
+  settings: AppSettings | null;
   updateSettings: (s: AppSettings) => void;
   isSyncing: boolean;
   globalError: string | null;
@@ -59,7 +59,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setThemeState] = useState<Theme>('light');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isLoggedIn, setIsLoggedInState] = useState(false);
-  const [settings, setSettings] = useState<AppSettings>(INITIAL_SETTINGS);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
 
@@ -68,7 +68,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   useEffect(() => {
     const initApp = async () => {
       try {
-        Logger.info("Initiating Production Data Sync from Supabase...");
+        Logger.info("STRICT_MODE: Initiating Cloud Sync...");
         
         // Hydrate configuration and auth state purely from Supabase
         const [authRes, settingsRes] = await Promise.allSettled([
@@ -78,16 +78,21 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         
         if (authRes.status === 'fulfilled') {
           setIsLoggedInState(authRes.value.isLoggedIn);
+        } else {
+          throw new Error("Failed to authenticate with Supabase.");
         }
         
-        if (settingsRes.status === 'fulfilled') {
+        if (settingsRes.status === 'fulfilled' && settingsRes.value) {
           setSettings(settingsRes.value);
+        } else {
+          Logger.warn("Supabase Config record 'settings' not found. App running in unconfigured state.");
         }
 
-        Logger.info("Supabase Hydration Complete.");
+        Logger.info("STRICT_MODE: Cloud Hydration Success.");
+        setLoading(false);
       } catch (error: any) {
-        Logger.warn("Supabase Hydration limited. Using default settings.", error);
-      } finally {
+        Logger.error("STRICT_MODE_FAILURE: App locked due to cloud connection error.", error);
+        setGlobalError(error.message || "Cloud connection failed. Persistence is unavailable.");
         setLoading(false);
       }
     };
@@ -132,10 +137,10 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     try {
       await StorageService.saveSettings(newSettings);
       setSettings(newSettings);
-      Logger.info("Settings Published via Supabase.");
+      Logger.info("STRICT_MODE: Settings committed to Supabase.");
     } catch (e: any) {
-      Logger.error("Settings Sync Failure", e);
-      setGlobalError(e.message || "Failed to publish settings.");
+      Logger.error("STRICT_MODE_SYNC_FAILURE", e);
+      setGlobalError(e.message || "Failed to commit settings to cloud.");
     } finally {
       setIsSyncing(false);
     }
@@ -148,7 +153,21 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           <div className="w-24 h-24 border-4 border-brand/20 rounded-full"></div>
           <div className="absolute inset-0 w-24 h-24 border-4 border-brand border-t-transparent rounded-full animate-spin"></div>
         </div>
-        <p className="mt-8 text-gray-500 font-black uppercase tracking-[0.4em] animate-pulse text-xs">Connecting to Cloud...</p>
+        <p className="mt-8 text-gray-500 font-black uppercase tracking-[0.4em] animate-pulse text-xs">Connecting to Supabase Cloud...</p>
+      </div>
+    );
+  }
+
+  // Mandatory App Lock if no Supabase connection
+  if (globalError && !settings) {
+    return (
+      <div className="min-h-screen bg-brand flex flex-col items-center justify-center p-10 text-white text-center">
+        <div className="w-24 h-24 bg-white/20 rounded-full flex items-center justify-center mb-8">
+          <span className="text-4xl font-black">!</span>
+        </div>
+        <h1 className="text-4xl font-black tracking-tighter mb-4">CLOUD_DISCONNECTED</h1>
+        <p className="max-w-md font-bold opacity-80 mb-8">{globalError}</p>
+        <button onClick={() => window.location.reload()} className="px-10 py-4 bg-white text-brand rounded-full font-black uppercase tracking-widest text-xs active:scale-95 transition-all">Retry Connection</button>
       </div>
     );
   }

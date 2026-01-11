@@ -145,7 +145,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
               <button 
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="md:hidden p-3 hover:bg-white/20 dark:hover:bg-white/10 rounded-2xl text-gray-600 dark:text-gray-300 transition-all active:scale-90"
+                className="md:hidden p-3 hover:bg-white/20 dark:hover:bg-white/10 rounded-2xl text-gray-600 dark:text-gray-300 transition-all active:scale-95"
               >
                 {mobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
@@ -190,15 +190,15 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                 <span className="text-2xl font-black dark:text-white tracking-tighter">IMATION</span>
               </Link>
               <p className="text-gray-500 dark:text-gray-400 max-w-sm font-medium leading-relaxed">
-                {settings.aboutText[lang]}
+                {settings?.aboutText[lang] || 'Imation Iraq - Premium Tech Provider'}
               </p>
             </div>
             
             <div className="space-y-6">
               <h4 className="font-black dark:text-white uppercase tracking-widest text-xs opacity-50">{t.about}</h4>
               <ul className="space-y-3 text-gray-600 dark:text-gray-400 font-bold">
-                <li className="flex items-center gap-3"><Phone size={14} className="text-brand"/> {settings.phone1}</li>
-                <li className="flex items-center gap-3"><Phone size={14} className="text-brand"/> {settings.phone2}</li>
+                <li className="flex items-center gap-3"><Phone size={14} className="text-brand"/> {settings?.phone1 || 'No Phone Set'}</li>
+                <li className="flex items-center gap-3"><Phone size={14} className="text-brand"/> {settings?.phone2 || 'No Phone Set'}</li>
                 <li><Link to="/about" className="hover:text-brand transition-colors">Our Showrooms</Link></li>
               </ul>
             </div>
@@ -206,7 +206,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             <div className="space-y-6">
               <h4 className="font-black dark:text-white uppercase tracking-widest text-xs opacity-50">Follow Us</h4>
               <div className="flex gap-3">
-                {[settings.instagram, settings.facebook, settings.tiktok].map((url, i) => (
+                {settings && [settings.instagram, settings.facebook, settings.tiktok].map((url, i) => (
                   <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="p-4 windowy-glass rounded-2xl hover:scale-110 hover:text-brand transition-all active:scale-95 shadow-none">
                     {i === 0 ? <Instagram size={20} /> : i === 1 ? <Facebook size={20} /> : <TikTokIcon size={20} />}
                   </a>

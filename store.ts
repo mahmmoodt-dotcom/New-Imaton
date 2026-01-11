@@ -1,11 +1,9 @@
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { Category, Product, Order, AppSettings, AuthState, OrderStatus, CartItem } from './types';
-import { INITIAL_SETTINGS } from './constants';
 
 /**
  * Robust environment variable retrieval.
- * Supports standard process.env and Vite's import.meta.env.
  */
 const getEnv = (key: string): string => {
   try {
@@ -28,36 +26,33 @@ let supabaseInstance: SupabaseClient | null = null;
 
 /**
  * Singleton getter for Supabase client.
- * Returns null if configuration is missing instead of throwing,
- * allowing services to degrade gracefully.
+ * THROWS error if configuration is missing - App MUST NOT work without it.
  */
-const getSupabase = (): SupabaseClient | null => {
+const getSupabase = (): SupabaseClient => {
   if (supabaseInstance) return supabaseInstance;
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn('[SUPABASE_CONFIG] Environment variables missing. Persistence is disabled.');
-    return null;
+    throw new Error('CRITICAL_CONFIG_ERROR: Supabase URL or Anon Key is missing. Cloud persistence is required.');
   }
 
   try {
     supabaseInstance = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    console.log('[SUPABASE_INIT] Client initialized successfully.');
     return supabaseInstance;
   } catch (e) {
     console.error('[SUPABASE_INIT_ERROR]', e);
-    return null;
+    throw new Error('CRITICAL_CONNECTION_ERROR: Failed to connect to Supabase.');
   }
 };
 
 /**
- * Image Upload Utility
- * Uploads to Supabase Storage bucket 'products'.
- * Returns the public URL of the uploaded image.
+ * Image Upload Utility - Strictly Supabase Storage
  */
 const uploadImage = async (base64: string): Promise<string> => {
   if (!base64 || !base64.startsWith('data:')) return base64;
 
   const sb = getSupabase();
-  if (!sb) return base64; // Fallback to base64 if no cloud storage
+  console.log('[SUPABASE_STORAGE] Starting binary upload to bucket "products"...');
 
   try {
     const parts = base64.split(';base64,');
@@ -83,13 +78,17 @@ const uploadImage = async (base64: string): Promise<string> => {
       .from('products')
       .upload(fileName, blob, { contentType, upsert: true });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[SUPABASE_STORAGE_ERROR] Upload failed:', error);
+      throw error;
+    }
 
     const { data: { publicUrl } } = sb.storage.from('products').getPublicUrl(fileName);
+    console.log('[SUPABASE_STORAGE_SUCCESS] Public URL generated:', publicUrl);
     return publicUrl;
   } catch (err) {
-    console.error('[STORAGE_UPLOAD_ERROR]', err);
-    return base64; // Fail gracefully
+    console.error('[SUPABASE_STORAGE_FATAL]', err);
+    throw new Error('Failed to persist image to cloud storage.');
   }
 };
 
@@ -97,40 +96,38 @@ export const StorageService = {
   // AUTH
   getAuth: async (): Promise<AuthState> => {
     const sb = getSupabase();
-    if (!sb) return { isLoggedIn: false };
-    try {
-      const { data, error } = await sb.from('config').select('data').eq('key', 'auth').maybeSingle();
-      if (error) throw error;
-      return data?.data || { isLoggedIn: false };
-    } catch {
-      return { isLoggedIn: false };
-    }
+    console.log('[SUPABASE_DB] Fetching auth state...');
+    const { data, error } = await sb.from('config').select('data').eq('key', 'auth').maybeSingle();
+    if (error) console.error('[SUPABASE_DB_ERROR]', error);
+    const result = data?.data || { isLoggedIn: false };
+    console.log('[SUPABASE_DB_RESPONSE] Auth state:', result);
+    return result;
   },
   setAuth: async (auth: AuthState): Promise<void> => {
     const sb = getSupabase();
-    if (!sb) return;
+    console.log('[SUPABASE_DB] Updating auth state...', auth);
     const { error } = await sb.from('config').upsert({ key: 'auth', data: auth });
     if (error) throw error;
+    console.log('[SUPABASE_DB_SUCCESS] Auth state persisted.');
   },
 
   // CATEGORIES
   getCategories: async (): Promise<Category[]> => {
     const sb = getSupabase();
-    if (!sb) return [];
-    try {
-      const { data, error } = await sb.from('categories').select('*').order('created_at', { ascending: true });
-      if (error) throw error;
-      return (data || []).map(cat => ({
-        id: cat.id,
-        name: { en: cat.name_en, ar: cat.name_ar, ku: cat.name_ku },
-        image: cat.image
-      }));
-    } catch {
-      return [];
-    }
+    console.log('[SUPABASE_DB] Fetching categories...');
+    const { data, error } = await sb.from('categories').select('*').order('created_at', { ascending: true });
+    if (error) throw error;
+    const categories = (data || []).map(cat => ({
+      id: cat.id,
+      name: { en: cat.name_en, ar: cat.name_ar, ku: cat.name_ku },
+      image: cat.image
+    }));
+    console.log(`[SUPABASE_DB_RESPONSE] Found ${categories.length} categories.`);
+    return categories;
   },
   saveCategories: async (categories: Category[]): Promise<Category[]> => {
     const sb = getSupabase();
+    console.log('[SUPABASE_DB] Processing category batch save...');
     const processed = await Promise.all(categories.map(async cat => ({
       id: cat.id,
       name_en: cat.name.en,
@@ -140,43 +137,40 @@ export const StorageService = {
       created_at: new Date().toISOString()
     })));
     
-    if (sb) {
-      const { error } = await sb.from('categories').upsert(processed);
-      if (error) throw error;
-      return StorageService.getCategories();
-    }
+    console.log('[SUPABASE_DB] Upserting categories to DB...', processed);
+    const { error } = await sb.from('categories').upsert(processed);
+    if (error) throw error;
     
-    return categories; // Return local if no SB
+    return StorageService.getCategories();
   },
 
   // PRODUCTS
   getProducts: async (): Promise<Product[]> => {
     const sb = getSupabase();
-    if (!sb) return [];
-    try {
-      const { data, error } = await sb.from('products').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []).map(p => ({
-        id: p.id,
-        categoryId: p.category_id,
-        name: { en: p.name_en, ar: p.name_ar, ku: p.name_ku },
-        description: { 
-          en: p.description_en || p.description, 
-          ar: p.description_ar || p.description, 
-          ku: p.description_ku || p.description 
-        },
-        price: p.price,
-        discountPrice: p.has_discount ? p.discount : undefined,
-        image: p.image,
-        isAvailable: p.available,
-        createdAt: new Date(p.created_at).getTime()
-      }));
-    } catch {
-      return [];
-    }
+    console.log('[SUPABASE_DB] Fetching products...');
+    const { data, error } = await sb.from('products').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    const products = (data || []).map(p => ({
+      id: p.id,
+      categoryId: p.category_id,
+      name: { en: p.name_en, ar: p.name_ar, ku: p.name_ku },
+      description: { 
+        en: p.description_en || p.description, 
+        ar: p.description_ar || p.description, 
+        ku: p.description_ku || p.description 
+      },
+      price: p.price,
+      discountPrice: p.has_discount ? p.discount : undefined,
+      image: p.image,
+      isAvailable: p.available,
+      createdAt: new Date(p.created_at).getTime()
+    }));
+    console.log(`[SUPABASE_DB_RESPONSE] Found ${products.length} products.`);
+    return products;
   },
   saveProducts: async (products: Product[]): Promise<Product[]> => {
     const sb = getSupabase();
+    console.log('[SUPABASE_DB] Processing product batch save...');
     const processed = await Promise.all(products.map(async p => ({
       id: p.id,
       category_id: p.categoryId,
@@ -195,95 +189,47 @@ export const StorageService = {
       created_at: new Date(p.createdAt).toISOString()
     })));
 
-    if (sb) {
-      const { error } = await sb.from('products').upsert(processed);
-      if (error) throw error;
-      return StorageService.getProducts();
-    }
+    console.log('[SUPABASE_DB] Upserting products to DB...', processed);
+    const { error } = await sb.from('products').upsert(processed);
+    if (error) throw error;
     
-    return products;
+    return StorageService.getProducts();
   },
 
   // SETTINGS
-  getSettings: async (): Promise<AppSettings> => {
+  getSettings: async (): Promise<AppSettings | null> => {
     const sb = getSupabase();
-    if (!sb) return INITIAL_SETTINGS;
-    try {
-      const { data, error } = await sb.from('config').select('data').eq('key', 'settings').maybeSingle();
-      if (error) throw error;
-      return data?.data || INITIAL_SETTINGS;
-    } catch {
-      return INITIAL_SETTINGS;
-    }
+    console.log('[SUPABASE_DB] Fetching app settings...');
+    const { data, error } = await sb.from('config').select('data').eq('key', 'settings').maybeSingle();
+    if (error) throw error;
+    console.log('[SUPABASE_DB_RESPONSE] Settings:', data?.data || 'NULL (Empty DB)');
+    return data?.data || null;
   },
   saveSettings: async (settings: AppSettings): Promise<void> => {
     const sb = getSupabase();
+    console.log('[SUPABASE_DB] Uploading setting assets and persisting...');
     const processedSettings = {
       ...settings,
       logo: await uploadImage(settings.logo),
       heroImage: await uploadImage(settings.heroImage),
       aboutImage: await uploadImage(settings.aboutImage)
     };
-    if (sb) {
-      const { error } = await sb.from('config').upsert({ key: 'settings', data: processedSettings });
-      if (error) throw error;
-    }
+    const { error } = await sb.from('config').upsert({ key: 'settings', data: processedSettings });
+    if (error) throw error;
+    console.log('[SUPABASE_DB_SUCCESS] Settings updated.');
   },
 
   // ORDERS
   getOrders: async (): Promise<Order[]> => {
     const sb = getSupabase();
-    if (!sb) return [];
-    try {
-      const { data: orders, error: ordersErr } = await sb.from('orders').select('*').order('created_at', { ascending: false });
-      if (ordersErr) throw ordersErr;
-      const { data: items } = await sb.from('order_items').select('*, products(*)');
+    console.log('[SUPABASE_DB] Fetching full order manifest...');
+    const { data: orders, error: ordersErr } = await sb.from('orders').select('*').order('created_at', { ascending: false });
+    if (ordersErr) throw ordersErr;
+    const { data: items } = await sb.from('order_items').select('*, products(*)');
 
-      return (orders || []).map(o => {
-        const orderItems = (items || []).filter(item => item.order_id === o.id);
-        const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        return {
-          id: o.id,
-          invoiceNumber: o.id,
-          trackingNumber: o.tracking_number,
-          customerName: o.customer_name,
-          phoneNumber: o.phone,
-          city: o.city,
-          address: o.address,
-          note: o.note,
-          status: o.status as OrderStatus,
-          deliveryPerson: o.delivery_name,
-          deliveryPhone: o.delivery_phone,
-          createdAt: new Date(o.created_at).getTime(),
-          totalAmount,
-          items: orderItems.map(item => ({
-            productId: item.product_id,
-            quantity: item.quantity,
-            product: {
-              id: item.products.id,
-              name: { en: item.products.name_en, ar: item.products.name_ar, ku: item.products.name_ku },
-              image: item.products.image,
-              price: item.products.price,
-              discountPrice: item.products.has_discount ? item.products.discount : undefined
-            } as any
-          }))
-        };
-      });
-    } catch {
-      return [];
-    }
-  },
-  getOrderByTracking: async (trackingNo: string): Promise<Order | null> => {
-    const sb = getSupabase();
-    if (!sb) return null;
-    try {
-      const { data: o, error } = await sb.from('orders').select('*').eq('tracking_number', trackingNo.toUpperCase()).maybeSingle();
-      if (error || !o) return null;
-      
-      const { data: items } = await sb.from('order_items').select('*, products(*)').eq('order_id', o.id);
-      const orderItems = items || [];
+    const result = (orders || []).map(o => {
+      const orderItems = (items || []).filter(item => item.order_id === o.id);
       const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
       return {
         id: o.id,
         invoiceNumber: o.id,
@@ -310,14 +256,50 @@ export const StorageService = {
           } as any
         }))
       };
-    } catch {
-      return null;
-    }
+    });
+    console.log(`[SUPABASE_DB_RESPONSE] Found ${result.length} orders.`);
+    return result;
+  },
+  getOrderByTracking: async (trackingNo: string): Promise<Order | null> => {
+    const sb = getSupabase();
+    console.log(`[SUPABASE_DB] Tracking query for: ${trackingNo}`);
+    const { data: o, error } = await sb.from('orders').select('*').eq('tracking_number', trackingNo.toUpperCase()).maybeSingle();
+    if (error || !o) return null;
+    
+    const { data: items } = await sb.from('order_items').select('*, products(*)').eq('order_id', o.id);
+    const orderItems = items || [];
+    const totalAmount = orderItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
+    return {
+      id: o.id,
+      invoiceNumber: o.id,
+      trackingNumber: o.tracking_number,
+      customerName: o.customer_name,
+      phoneNumber: o.phone,
+      city: o.city,
+      address: o.address,
+      note: o.note,
+      status: o.status as OrderStatus,
+      deliveryPerson: o.delivery_name,
+      deliveryPhone: o.delivery_phone,
+      createdAt: new Date(o.created_at).getTime(),
+      totalAmount,
+      items: orderItems.map(item => ({
+        productId: item.product_id,
+        quantity: item.quantity,
+        product: {
+          id: item.products.id,
+          name: { en: item.products.name_en, ar: item.products.name_ar, ku: item.products.name_ku },
+          image: item.products.image,
+          price: item.products.price,
+          discountPrice: item.products.has_discount ? item.products.discount : undefined
+        } as any
+      }))
+    };
   },
   updateOrderStatus: async (orderId: string, status: OrderStatus, deliveryInfo?: { person?: string, phone?: string }): Promise<Order> => {
     const sb = getSupabase();
-    if (!sb) throw new Error('Cloud persistence unavailable.');
-    
+    console.log(`[SUPABASE_DB] Transitioning order ${orderId} to status: ${status}`);
     const updates: any = { status };
     if (deliveryInfo?.person) updates.delivery_name = deliveryInfo.person;
     if (deliveryInfo?.phone) updates.delivery_phone = deliveryInfo.phone;
@@ -326,13 +308,12 @@ export const StorageService = {
     if (error) throw error;
     
     const refreshed = await StorageService.getOrderByTracking(orderId);
-    if (!refreshed) throw new Error('Order not found after update');
+    if (!refreshed) throw new Error('Order verification failed after status update.');
     return refreshed;
   },
   submitOrder: async (order: Order): Promise<Order> => {
     const sb = getSupabase();
-    if (!sb) throw new Error('Cloud persistence unavailable.');
-
+    console.log('[SUPABASE_DB] Atomic order submission initialized...');
     const year = new Date().getFullYear();
     const timestamp = new Date().toISOString();
 
@@ -364,7 +345,8 @@ export const StorageService = {
     if (itemsError) throw itemsError;
 
     const finalOrder = await StorageService.getOrderByTracking(trackingNo);
-    if (!finalOrder) throw new Error('Failed to retrieve submitted order');
+    if (!finalOrder) throw new Error('Post-submission order retrieval failed.');
+    console.log('[SUPABASE_DB_SUCCESS] Transaction finalized:', finalOrder.trackingNumber);
     return finalOrder;
   }
 };
