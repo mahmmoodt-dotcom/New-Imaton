@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { ShoppingBag, Trash2, Plus, Minus, Download, CheckCircle2, Phone, MapPin, User, FileText, Loader2, AlertCircle } from 'lucide-react';
 import { useApp, Logger } from '../App';
-import { IRAQ_CITIES } from '../constants';
+import { IRAQ_CITIES, cityLabel } from '../constants';
 import { StorageService } from '../store';
 import { Order } from '../types';
 import Invoice from '../components/Invoice';
@@ -94,7 +94,7 @@ const CartPage: React.FC = () => {
           </div>
           <h2 className="text-5xl font-black mb-6 dark:text-white tracking-tighter uppercase">{t.orderSuccess}</h2>
           <p className="text-gray-500 dark:text-gray-400 mb-12 max-w-lg mx-auto font-bold text-lg">
-            Your high-performance hardware request has been registered. Our team is preparing your package for shipment.
+            {t.orderRegistered}
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
@@ -128,7 +128,7 @@ const CartPage: React.FC = () => {
           </div>
           
           <p className="mt-12 text-gray-400 font-black text-[10px] uppercase tracking-[0.3em]">
-            Tip: Keep your tracking ID safe to monitor delivery status.
+            {t.keepTrackingSafe}
           </p>
         </div>
 
@@ -145,10 +145,10 @@ const CartPage: React.FC = () => {
         <div className="w-24 h-24 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-8">
           <ShoppingBag size={48} className="text-gray-400" />
         </div>
-        <h2 className="text-3xl font-black mb-4 dark:text-white uppercase tracking-tighter">Your cart is empty</h2>
-        <p className="text-gray-500 mb-8 max-w-sm mx-auto font-medium">Upgrade your setup. Browse our latest high-performance arrivals.</p>
+        <h2 className="text-3xl font-black mb-4 dark:text-white uppercase tracking-tighter">{t.cartEmpty}</h2>
+        <p className="text-gray-500 mb-8 max-w-sm mx-auto font-medium">{t.cartEmptyDesc}</p>
         <button onClick={() => window.location.hash = '#/shop'} className="px-10 py-5 bg-brand text-white rounded-2xl font-black shadow-xl shadow-brand/20 active:scale-95 transition-all">
-          Browse Catalog
+          {t.browseCatalog}
         </button>
       </div>
     );
@@ -172,7 +172,7 @@ const CartPage: React.FC = () => {
                 </div>
                 <div className="flex-grow space-y-1 text-center sm:text-left">
                   <h3 className="font-black text-lg dark:text-white line-clamp-1">{item.product.name[lang]}</h3>
-                  <p className="text-gray-400 font-bold text-sm">Unit Price: {price.toLocaleString()} IQD</p>
+                  <p className="text-gray-400 font-bold text-sm">{t.unitPrice}: {price.toLocaleString()} IQD</p>
                 </div>
                 <div className="flex items-center gap-4">
                   <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-xl p-1">
@@ -196,30 +196,30 @@ const CartPage: React.FC = () => {
 
           {!isCheckingOut ? (
             <>
-              <h2 className="text-2xl font-black dark:text-white tracking-tighter uppercase">Summary</h2>
+              <h2 className="text-2xl font-black dark:text-white tracking-tighter uppercase">{t.summary}</h2>
               <div className="space-y-4 border-b border-gray-100 dark:border-gray-700 pb-6">
                 <div className="flex justify-between text-gray-500 font-bold">
-                  <span>Subtotal</span>
+                  <span>{t.subtotal}</span>
                   <span>{subtotal.toLocaleString()} IQD</span>
                 </div>
                 <div className="flex justify-between text-gray-500 font-bold">
-                  <span>Delivery Cost</span>
-                  <span className="text-green-600 font-black">FREE</span>
+                  <span>{t.deliveryCost}</span>
+                  <span className="text-green-600 font-black">{t.free}</span>
                 </div>
               </div>
               <div className="flex justify-between items-center pt-2">
-                <span className="text-xl font-black dark:text-white">Total</span>
+                <span className="text-xl font-black dark:text-white">{t.total}</span>
                 <span className="text-2xl font-black text-brand tracking-tighter">{subtotal.toLocaleString()} IQD</span>
               </div>
               <button onClick={() => setIsCheckingOut(true)} className="w-full py-5 bg-brand hover:bg-brand-dark text-white rounded-2xl font-black transition-all active:scale-95 shadow-xl shadow-brand/20">
-                Proceed to Checkout
+                {t.proceedToCheckout}
               </button>
             </>
           ) : (
             <form onSubmit={handlePlaceOrder} className="space-y-6 animate-in fade-in duration-300">
               <div className="flex items-center gap-2 mb-4">
-                <button type="button" onClick={() => setIsCheckingOut(false)} className="text-brand font-black text-sm hover:underline">← Go Back</button>
-                <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">Recipient Info</h2>
+                <button type="button" onClick={() => setIsCheckingOut(false)} className="text-brand font-black text-sm hover:underline">← {t.goBack}</button>
+                <h2 className="text-2xl font-black dark:text-white uppercase tracking-tighter">{t.recipientInfo}</h2>
               </div>
               
               <div className="space-y-4">
@@ -234,7 +234,7 @@ const CartPage: React.FC = () => {
                 <div className="relative">
                   <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <select value={formData.city} onChange={(e) => setFormData({...formData, city: e.target.value})} className="w-full pl-12 pr-4 py-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border-none focus:ring-2 focus:ring-brand dark:text-white appearance-none font-bold">
-                    {IRAQ_CITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    {IRAQ_CITIES.map(c => <option key={c} value={c}>{cityLabel(c, lang)}</option>)}
                   </select>
                 </div>
                 <div className="relative group">
@@ -249,11 +249,11 @@ const CartPage: React.FC = () => {
 
               <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex justify-between items-center mb-6">
-                  <span className="font-black text-lg dark:text-white">Final Total</span>
+                  <span className="font-black text-lg dark:text-white">{t.finalTotal}</span>
                   <span className="text-2xl font-black text-brand tracking-tighter">{subtotal.toLocaleString()} IQD</span>
                 </div>
                 <button type="submit" disabled={isProcessing} className="w-full py-5 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-black transition-all shadow-xl shadow-green-200/20 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2">
-                  {isProcessing ? <Loader2 className="animate-spin" size={24} /> : "Submit Order (COD)"}
+                  {isProcessing ? <Loader2 className="animate-spin" size={24} /> : t.submitOrderCod}
                 </button>
               </div>
             </form>

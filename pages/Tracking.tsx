@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Package, Truck, CheckCircle, Clock, XCircle, Download, Loader2, AlertCircle, MapPin, User, ChevronRight } from 'lucide-react';
 import { useApp, Logger } from '../App';
 import { StorageService } from '../store';
+import { cityLabel } from '../constants';
 import { Order, OrderStatus } from '../types';
 import Invoice from '../components/Invoice';
 
@@ -68,7 +69,7 @@ const TrackingPage: React.FC = () => {
       <div className="text-center mb-16 animate-in fade-in duration-700">
         <h1 className="text-4xl lg:text-5xl font-black mb-4 dark:text-white tracking-tighter uppercase">{t.trackYourOrder}</h1>
         <p className="text-gray-500 dark:text-gray-400 max-w-lg mx-auto font-medium">
-          Monitor your tech delivery in real-time. Enter your tracking ID below to see exactly where your high-performance hardware is.
+          {t.trackingIntro}
         </p>
       </div>
 
@@ -90,7 +91,7 @@ const TrackingPage: React.FC = () => {
             disabled={isSearching}
             className="px-12 py-5 bg-brand hover:bg-brand-dark text-white rounded-[1.5rem] font-black uppercase tracking-widest text-xs shadow-xl shadow-brand/20 dark:shadow-none transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
-            {isSearching ? <Loader2 className="animate-spin" size={20} /> : 'Track Now'}
+            {isSearching ? <Loader2 className="animate-spin" size={20} /> : t.trackNow}
           </button>
         </form>
       </div>
@@ -119,7 +120,7 @@ const TrackingPage: React.FC = () => {
                 </h2>
                 <div className="flex items-center justify-center md:justify-start gap-3">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-ping"></div>
-                  <p className="text-gray-500 dark:text-gray-400 font-bold">Updated: {new Date(order.createdAt).toLocaleDateString()} at {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  <p className="text-gray-500 dark:text-gray-400 font-bold">{t.updated}: {new Date(order.createdAt).toLocaleDateString()} {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
                 </div>
               </div>
               <div className="flex flex-col items-center md:items-end gap-4 shrink-0">
@@ -131,7 +132,7 @@ const TrackingPage: React.FC = () => {
                   {t.downloadInvoice}
                 </button>
                 <div className="text-right">
-                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">Order ID</p>
+                  <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest">{t.orderId}</p>
                   <p className="font-black dark:text-white">#{order.id.slice(-8).toUpperCase()}</p>
                 </div>
               </div>
@@ -141,7 +142,7 @@ const TrackingPage: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700/50 space-y-6">
                 <h3 className="font-black text-lg flex items-center gap-3 dark:text-white uppercase tracking-tight">
                   <Package size={22} className="text-brand" />
-                  Package Contents
+                  {t.packageContents}
                 </h3>
                 <div className="space-y-4">
                   {order.items.map((item, idx) => (
@@ -152,7 +153,7 @@ const TrackingPage: React.FC = () => {
                         </div>
                         <div>
                           <p className="text-sm font-black dark:text-white truncate max-w-[150px]">{item.product?.name[lang] || item.product?.name?.en}</p>
-                          <p className="text-[10px] font-black text-gray-400 uppercase">Unit Qty: {item.quantity}</p>
+                          <p className="text-[10px] font-black text-gray-400 uppercase">{t.qty}: {item.quantity}</p>
                         </div>
                       </div>
                       <ChevronRight size={16} className="text-gray-300" />
@@ -160,7 +161,7 @@ const TrackingPage: React.FC = () => {
                   ))}
                 </div>
                 <div className="pt-6 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
-                  <span className="font-black text-gray-400 uppercase text-xs tracking-widest">Total Valuation</span>
+                  <span className="font-black text-gray-400 uppercase text-xs tracking-widest">{t.totalValuation}</span>
                   <span className="text-2xl font-black text-brand tracking-tighter">{order.totalAmount.toLocaleString()} <small className="text-xs">IQD</small></span>
                 </div>
               </div>
@@ -168,7 +169,7 @@ const TrackingPage: React.FC = () => {
               <div className="bg-gray-50 dark:bg-gray-900/50 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700/50 space-y-8">
                 <h3 className="font-black text-lg flex items-center gap-3 dark:text-white uppercase tracking-tight">
                   <MapPin size={22} className="text-brand" />
-                  Logistics Data
+                  {t.logisticsData}
                 </h3>
                 <div className="space-y-6">
                   <div className="flex gap-4">
@@ -176,7 +177,7 @@ const TrackingPage: React.FC = () => {
                       <User className="text-brand" size={20} />
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest block">Recipient Name</span>
+                      <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest block">{t.recipientName}</span>
                       <p className="font-black dark:text-white text-lg tracking-tight">{order.customerName}</p>
                     </div>
                   </div>
@@ -185,8 +186,8 @@ const TrackingPage: React.FC = () => {
                       <MapPin className="text-brand" size={20} />
                     </div>
                     <div>
-                      <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest block">Final Destination</span>
-                      <p className="text-gray-600 dark:text-gray-300 font-bold leading-snug">{order.city}, {order.address}</p>
+                      <span className="text-[10px] text-gray-400 font-black uppercase tracking-widest block">{t.finalDestination}</span>
+                      <p className="text-gray-600 dark:text-gray-300 font-bold leading-snug">{cityLabel(order.city, lang)}, {order.address}</p>
                     </div>
                   </div>
                   {order.deliveryPerson && (
@@ -195,7 +196,7 @@ const TrackingPage: React.FC = () => {
                         <Truck size={28} />
                       </div>
                       <div>
-                        <span className="text-[10px] text-brand font-black uppercase tracking-widest block">Assigned Courier</span>
+                        <span className="text-[10px] text-brand font-black uppercase tracking-widest block">{t.assignedCourier}</span>
                         <p className="font-black dark:text-white text-xl tracking-tight">{order.deliveryPerson}</p>
                       </div>
                     </div>
@@ -214,8 +215,8 @@ const TrackingPage: React.FC = () => {
           <div className="w-24 h-24 bg-red-100 dark:bg-red-900/20 text-red-500 rounded-[2rem] flex items-center justify-center mx-auto mb-6 shadow-xl shadow-red-500/10">
             <XCircle size={48} />
           </div>
-          <h3 className="text-2xl font-black dark:text-white mb-2 tracking-tight">Order Not Located</h3>
-          <p className="text-gray-500 dark:text-gray-400 font-bold mb-8">No records match tracking ID: <span className="text-brand font-black uppercase">{trackingNo}</span></p>
+          <h3 className="text-2xl font-black dark:text-white mb-2 tracking-tight">{t.orderNotLocated}</h3>
+          <p className="text-gray-500 dark:text-gray-400 font-bold mb-8">{t.noRecordsMatch} <span className="text-brand font-black uppercase">{trackingNo}</span></p>
           <button 
             onClick={() => setHasSearched(false)}
             className="px-8 py-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-2xl font-black uppercase tracking-widest text-[10px] hover:bg-gray-50 transition-all shadow-sm"

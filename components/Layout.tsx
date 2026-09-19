@@ -204,7 +204,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             </div>
 
             <div className="space-y-6">
-              <h4 className="font-black dark:text-white uppercase tracking-widest text-xs opacity-50">Follow Us</h4>
+              <h4 className="font-black dark:text-white uppercase tracking-widest text-xs opacity-50">{t.followUs}</h4>
               <div className="flex gap-3">
                 {settings && [
                   { url: settings.instagram, icon: <Instagram size={20} /> },

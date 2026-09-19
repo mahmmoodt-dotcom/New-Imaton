@@ -65,9 +65,7 @@ const HomePage: React.FC = () => {
 
               <div className="space-y-6">
                 <h1 className="text-6xl lg:text-8xl font-black tracking-tighter leading-[0.9] text-gray-900 dark:text-white">
-                  High <br />
-                  Performance <br />
-                  <span className="text-brand">Tech</span>
+                  {t.welcomeTitle}
                 </h1>
                 <p className="text-xl text-gray-500 dark:text-gray-400 max-w-lg leading-relaxed font-medium">
                   {t.welcomeDesc}
@@ -109,7 +107,7 @@ const HomePage: React.FC = () => {
           <div className="flex flex-col items-center text-center mb-16 space-y-3">
             <h2 className="text-5xl font-black text-gray-900 dark:text-white tracking-tight">{t.categories}</h2>
             <div className="w-20 h-1.5 bg-brand rounded-full"></div>
-            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs pt-2">Explore our premium selection</p>
+            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs pt-2">{t.exploreSelection}</p>
           </div>
           
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
@@ -128,7 +126,7 @@ const HomePage: React.FC = () => {
                 <div className="absolute bottom-12 left-12 right-12">
                   <h3 className="text-white text-4xl font-black mb-3 tracking-tight">{cat.name[lang]}</h3>
                   <div className="inline-flex items-center text-white/60 font-black text-xs uppercase tracking-widest group-hover:text-white transition-colors">
-                    <span>Explore Collection</span>
+                    <span>{t.exploreCollection}</span>
                     <ArrowRight size={16} className="ml-2 group-hover:translate-x-2 transition-transform" />
                   </div>
                 </div>
@@ -143,10 +141,10 @@ const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row justify-between items-end mb-20 gap-8">
           <div className="space-y-2">
             <h2 className="text-6xl font-black text-gray-900 dark:text-white tracking-tighter">{t.allProducts}</h2>
-            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Curated for top performance</p>
+            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">{t.curatedTop}</p>
           </div>
           <Link to="/shop" className="group flex items-center gap-4 text-brand font-black px-10 py-5 windowy-glass rounded-[2rem] transition-all border-white/20 active:scale-95">
-            <span>View Catalog</span>
+            <span>{t.viewCatalog}</span>
             <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
@@ -164,20 +162,20 @@ const HomePage: React.FC = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
             <StatFeature 
               icon={<Truck size={36} />} 
-              title="Fast Delivery" 
-              desc="To all Iraq cities within 24-48h." 
+              title={t.fastDelivery} 
+              desc={t.fastDeliveryDesc} 
               color="text-brand" 
             />
             <StatFeature 
               icon={<ShieldCheck size={36} />} 
-              title="Iraqi Warranty" 
-              desc="100% genuine products only." 
+              title={t.iraqiWarranty} 
+              desc={t.iraqiWarrantyDesc} 
               color="text-green-600" 
             />
             <StatFeature 
               icon={<ShoppingBag size={36} />} 
-              title="Easy COD" 
-              desc="Pay when you receive items." 
+              title={t.easyCod} 
+              desc={t.easyCodDesc} 
               color="text-orange-600" 
             />
           </div>
@@ -213,7 +211,7 @@ export const ProductCard: React.FC<{ product: Product }> = ({ product }) => {
         />
         {isDiscounted && (
           <div className="absolute top-10 left-10 bg-brand text-white text-[10px] font-black px-6 py-2 rounded-full uppercase tracking-widest shadow-2xl animate-neon-shimmer">
-            Sale Event
+            {t.saleEvent}
           </div>
         )}
         {!product.isAvailable && (

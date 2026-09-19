@@ -90,7 +90,7 @@ const ShopPage: React.FC = () => {
                       : 'hover:bg-brand/5 dark:text-gray-300'
                   }`}
                 >
-                  All Products
+                  {t.allProducts}
                 </button>
                 {categories.map(cat => (
                   <button 
@@ -109,7 +109,7 @@ const ShopPage: React.FC = () => {
             </div>
 
             <div className="windowy-glass p-8 rounded-[3.5rem] shadow-none">
-              <h3 className="text-xl font-black mb-6 dark:text-white tracking-tight">Special Deals</h3>
+              <h3 className="text-xl font-black mb-6 dark:text-white tracking-tight">{t.specialDeals}</h3>
               <label className="flex items-center gap-4 cursor-pointer group">
                 <div className="relative">
                   <input 
@@ -148,12 +148,12 @@ const ShopPage: React.FC = () => {
                 <button className="w-full flex items-center justify-between gap-6 px-10 py-5 windowy-glass rounded-[2.5rem] font-black hover:bg-white/40 dark:hover:bg-white/5 transition-all shadow-none">
                   <div className="flex items-center gap-3">
                     <SlidersHorizontal size={20} className="text-brand" />
-                    <span>Sort By</span>
+                    <span>{t.sortBy}</span>
                   </div>
                   <ChevronDown size={16} />
                 </button>
                 <div className="absolute right-0 mt-3 w-64 windowy-glass rounded-[2.5rem] shadow-2xl border-white/5 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all z-20 overflow-hidden">
-                  <button onClick={() => setSortBy('newest')} className={`w-full text-left px-8 py-5 hover:bg-brand/10 transition-colors font-bold ${sortBy === 'newest' ? 'text-brand' : ''}`}>Newest First</button>
+                  <button onClick={() => setSortBy('newest')} className={`w-full text-left px-8 py-5 hover:bg-brand/10 transition-colors font-bold ${sortBy === 'newest' ? 'text-brand' : ''}`}>{t.newestFirst}</button>
                   <button onClick={() => setSortBy('low')} className={`w-full text-left px-8 py-5 hover:bg-brand/10 transition-colors font-bold ${sortBy === 'low' ? 'text-brand' : ''}`}>{t.lowToHigh}</button>
                   <button onClick={() => setSortBy('high')} className={`w-full text-left px-8 py-5 hover:bg-brand/10 transition-colors font-bold ${sortBy === 'high' ? 'text-brand' : ''}`}>{t.highToLow}</button>
                 </div>
@@ -172,8 +172,8 @@ const ShopPage: React.FC = () => {
                 <div className="w-24 h-24 bg-brand/5 rounded-full flex items-center justify-center mx-auto mb-8 text-brand">
                   <Search size={40} />
                 </div>
-                <p className="text-gray-500 font-black text-2xl mb-4">No gadgets found.</p>
-                <button onClick={() => { setSearchQuery(''); setSelectedCategory('all'); setDiscountOnly(false); }} className="text-brand font-black hover:underline uppercase tracking-widest text-xs">Clear Filters</button>
+                <p className="text-gray-500 font-black text-2xl mb-4">{t.noProductsFound}</p>
+                <button onClick={() => { setSearchQuery(''); setSelectedCategory('all'); setDiscountOnly(false); }} className="text-brand font-black hover:underline uppercase tracking-widest text-xs">{t.clearFilters}</button>
               </div>
             )}
           </div>

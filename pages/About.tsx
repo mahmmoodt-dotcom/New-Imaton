@@ -26,7 +26,7 @@ const AboutPage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 text-center relative z-10">
           <h1 className="text-5xl lg:text-7xl font-black mb-6 tracking-tight">{t.about}</h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto font-medium">
-            Building the digital future of Iraq with premium computer hardware and expert service.
+            {t.aboutHeroDesc}
           </p>
         </div>
       </section>
@@ -69,8 +69,8 @@ const AboutPage: React.FC = () => {
                   {t.businessHours}
                 </h3>
                 <ul className="space-y-2 text-gray-600 dark:text-gray-400 font-medium">
-                  <li>The store is open all week</li>
-                  <li>Working hours: 9 AM to 7 PM</li>
+                  <li>{t.openAllWeek}</li>
+                  <li>{t.workingHours}</li>
                 </ul>
               </div>
             </div>
@@ -127,7 +127,7 @@ const AboutPage: React.FC = () => {
             ) : (
               <div className="flex flex-col items-center gap-3 text-gray-400">
                 <MapPin size={40} />
-                <p className="text-sm font-bold">Open our location in Google Maps</p>
+                <p className="text-sm font-bold">{t.openInMaps}</p>
               </div>
             )}
             <div className="absolute bottom-8 right-8 bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 hidden md:block max-w-xs transition-colors">
