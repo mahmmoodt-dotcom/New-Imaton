@@ -17,6 +17,44 @@
 declare(strict_types=1);
 require __DIR__ . '/../lib/bootstrap.php';
 
+/** Cities the shop delivers to — mirrors constants.ts on the front end. */
+const IRAQ_CITIES = [
+    'Baghdad', 'Erbil', 'Sulaymaniyah', 'Duhok', 'Basra', 'Mosul', 'Najaf', 'Karbala',
+    'Kirkuk', 'Anbar', 'Maysan', 'Muthanna', 'Qadisiyah', 'Dhi Qar', 'Babil', 'Wasit',
+    'Diyala', 'Salah al-Din',
+];
+
+const MAX_LINES_PER_ORDER = 50;
+const MAX_QTY_PER_LINE    = 99;
+
+/**
+ * A tracking number nobody can guess.
+ *
+ * It used to be IM-<year>-<order id>, which counts up one at a time: anyone
+ * could ask for the next number and read that customer's name, phone and
+ * street address. This draws from an alphabet with no look-alike characters
+ * (no O/0, no I/1) so it survives being read down the phone.
+ */
+function generate_tracking_number(): string
+{
+    $alphabet = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+    $check = db()->prepare('SELECT 1 FROM orders WHERE tracking_number = ?');
+
+    for ($attempt = 0; $attempt < 12; $attempt++) {
+        $code = '';
+        for ($i = 0; $i < 8; $i++) {
+            $code .= $alphabet[random_int(0, strlen($alphabet) - 1)];
+        }
+        $candidate = 'IM-' . date('Y') . '-' . $code;
+
+        $check->execute([$candidate]);
+        if (!$check->fetchColumn()) {
+            return $candidate;
+        }
+    }
+    fail(500, 'could not allocate a tracking number — please try again');
+}
+
 function row_to_order(array $order, array $items): array
 {
     return [
@@ -67,23 +105,32 @@ $action = $_GET['action'] ?? '';
 
 if ($action === 'submit') {
     allow('POST');
+
+    // Checkout is open to the public, so it is the obvious thing to flood.
+    // Ten orders an hour from one address is far above real use and far
+    // below what would bury the shop owner in junk.
+    rate_limit('order-submit', 10, 60);
+
     $data = body();
 
-    $customerName = trim((string) ($data['customerName'] ?? ''));
-    $phone        = trim((string) ($data['phoneNumber'] ?? ''));
-    $city         = trim((string) ($data['city'] ?? ''));
-    $address      = trim((string) ($data['address'] ?? ''));
-    $note         = trim((string) ($data['note'] ?? ''));
+    $customerName = str_field($data['customerName'] ?? '', 'Full name', 100, true);
+    $phone        = str_field($data['phoneNumber'] ?? '', 'Phone number', 20, true);
+    $city         = str_field($data['city'] ?? '', 'City', 64, true);
+    $address      = str_field($data['address'] ?? '', 'Address', 500, true);
+    $note         = str_field($data['note'] ?? '', 'Note', 1000);
     $items        = is_array($data['items'] ?? null) ? $data['items'] : [];
 
-    if ($customerName === '' || $phone === '' || $city === '' || $address === '') {
-        fail(400, 'missing required delivery details');
-    }
     if (!preg_match('/^07[0-9]{9}$/', $phone)) {
         fail(400, 'invalid phone number');
     }
+    if (!in_array($city, IRAQ_CITIES, true)) {
+        fail(400, 'we do not deliver to that city');
+    }
     if (empty($items)) {
         fail(400, 'cart is empty');
+    }
+    if (count($items) > MAX_LINES_PER_ORDER) {
+        fail(400, 'too many different items in one order');
     }
 
     // Look up each product server-side rather than trusting client-sent
@@ -106,7 +153,7 @@ if ($action === 'submit') {
 
         foreach ($items as $line) {
             $productId = (string) ($line['productId'] ?? '');
-            $qty       = max(1, (int) ($line['quantity'] ?? 1));
+            $qty       = min(MAX_QTY_PER_LINE, max(1, (int) ($line['quantity'] ?? 1)));
 
             $productStmt->execute([$productId]);
             $product = $productStmt->fetch();
@@ -125,8 +172,7 @@ if ($action === 'submit') {
             ]);
         }
 
-        $year = date('Y');
-        $tracking = sprintf('IM-%s-%06d', $year, $orderId);
+        $tracking = generate_tracking_number();
         $pdo->prepare('UPDATE orders SET tracking_number = ? WHERE id = ?')->execute([$tracking, $orderId]);
 
         $pdo->commit();
@@ -144,13 +190,27 @@ if ($action === 'submit') {
 
 if ($action === 'track') {
     allow('GET');
-    $code = strtoupper(trim((string) ($_GET['code'] ?? '')));
-    if ($code === '') fail(400, 'tracking code required');
+
+    // Tracking numbers are unguessable, and this makes grinding through
+    // them pointless as well as useless.
+    rate_limit('order-track', 30, 15);
+
+    $code = strtoupper(str_field($_GET['code'] ?? '', 'Tracking number', 40, true));
 
     $stmt = db()->prepare('SELECT id FROM orders WHERE tracking_number = ?');
     $stmt->execute([$code]);
     $row = $stmt->fetch();
-    json_out(['order' => $row ? fetch_order((int) $row['id']) : null]);
+
+    if (!$row) {
+        json_out(['order' => null]);
+    }
+
+    // The tracking page never shows the phone number, so it is not sent.
+    // Whoever holds the code can already see the name and address they
+    // typed; there is no reason to hand out anything beyond that.
+    $order = fetch_order((int) $row['id']);
+    unset($order['phoneNumber'], $order['deliveryPhone']);
+    json_out(['order' => $order]);
 }
 
 if ($action === 'list') {
@@ -164,6 +224,9 @@ if ($action === 'count') {
     allow('GET');
     require_admin();
     $status = (string) ($_GET['status'] ?? 'Pending');
+    if (!in_array($status, ['Pending', 'Delivering', 'Delivered', 'Canceled'], true)) {
+        fail(400, 'unknown status');
+    }
     $stmt = db()->prepare('SELECT COUNT(*) FROM orders WHERE status = ?');
     $stmt->execute([$status]);
     json_out(['count' => (int) $stmt->fetchColumn()]);
@@ -180,19 +243,25 @@ if ($action === 'updateStatus') {
     if (!$orderId || !in_array($status, $valid, true)) {
         fail(400, 'invalid order or status');
     }
-    if ($status === 'Delivering' && trim((string) ($data['deliveryPerson'] ?? '')) === '') {
+    $courier      = str_field($data['deliveryPerson'] ?? '', 'Courier name', 100);
+    $courierPhone = str_field($data['deliveryPhone'] ?? '', 'Courier phone', 20);
+
+    if ($status === 'Delivering' && $courier === '') {
         fail(400, 'courier name is required to ship');
+    }
+    if ($courierPhone !== '' && !preg_match('/^07[0-9]{9}$/', $courierPhone)) {
+        fail(400, 'invalid courier phone number');
     }
 
     $sets = ['status = ?'];
     $params = [$status];
-    if (isset($data['deliveryPerson']) && $data['deliveryPerson'] !== '') {
+    if ($courier !== '') {
         $sets[] = 'delivery_name = ?';
-        $params[] = (string) $data['deliveryPerson'];
+        $params[] = $courier;
     }
-    if (isset($data['deliveryPhone']) && $data['deliveryPhone'] !== '') {
+    if ($courierPhone !== '') {
         $sets[] = 'delivery_phone = ?';
-        $params[] = (string) $data['deliveryPhone'];
+        $params[] = $courierPhone;
     }
     $params[] = $orderId;
 

@@ -5,7 +5,7 @@ import { useApp, Logger } from '../../App';
 import { StorageService } from '../../store';
 
 const AdminLogin: React.FC = () => {
-  const { isLoggedIn, setIsLoggedIn, t } = useApp();
+  const { isLoggedIn, setIsLoggedIn, setWeakPassword, t } = useApp();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -24,7 +24,8 @@ const AdminLogin: React.FC = () => {
     setError('');
     setIsSubmitting(true);
     try {
-      await StorageService.login(username.trim(), password);
+      const admin = await StorageService.login(username.trim(), password);
+      setWeakPassword(!!admin?.weakPassword);
       setIsLoggedIn(true);
       navigate('/admin');
     } catch (err: any) {

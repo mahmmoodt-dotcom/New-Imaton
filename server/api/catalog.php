@@ -18,6 +18,25 @@
 declare(strict_types=1);
 require __DIR__ . '/../lib/bootstrap.php';
 
+/** Guard rails so one bad payload can't fill the database or break a column. */
+const MAX_ITEMS_PER_SAVE = 2000;
+const MAX_PRICE          = 1000000000; // one billion dinar
+
+function price_field($value, string $label): float
+{
+    if (!is_numeric($value)) {
+        fail(400, "$label must be a number");
+    }
+    $price = (float) $value;
+    if ($price < 0) {
+        fail(400, "$label cannot be negative");
+    }
+    if ($price > MAX_PRICE) {
+        fail(400, "$label is unrealistically high");
+    }
+    return $price;
+}
+
 function row_to_category(array $row): array
 {
     return [
@@ -72,15 +91,15 @@ function save_categories(array $items): void
         );
 
         foreach ($items as $item) {
-            $id = (string) ($item['id'] ?? '');
+            $id = str_field($item['id'] ?? '', 'Category id', 64);
             if ($id === '') continue;
             $ids[] = $id;
             $image = save_data_uri_image($item['image'] ?? null);
             $upsert->execute([
                 $id,
-                (string) ($item['name']['en'] ?? ''),
-                (string) ($item['name']['ar'] ?? ''),
-                (string) ($item['name']['ku'] ?? ''),
+                str_field($item['name']['en'] ?? '', 'Category name (English)', 150),
+                str_field($item['name']['ar'] ?? '', 'Category name (Arabic)', 150),
+                str_field($item['name']['ku'] ?? '', 'Category name (Kurdish)', 150),
                 $image,
             ]);
         }
@@ -122,26 +141,38 @@ function save_products(array $items): void
         );
 
         foreach ($items as $item) {
-            $id = (string) ($item['id'] ?? '');
+            $id = str_field($item['id'] ?? '', 'Product id', 64);
             if ($id === '') continue;
             $ids[] = $id;
             $image = save_data_uri_image($item['image'] ?? null);
+
+            // A timestamp from the client only decides display order, but an
+            // absurd one would still land in a DATETIME column, so it is
+            // clamped to something a date can actually hold.
             $createdAtMs = isset($item['createdAt']) ? (int) $item['createdAt'] : (int) (microtime(true) * 1000);
-            $createdAt = date('Y-m-d H:i:s', intdiv($createdAtMs, 1000));
-            $discount = isset($item['discountPrice']) && $item['discountPrice'] !== '' && $item['discountPrice'] > 0
-                ? (float) $item['discountPrice'] : null;
-            $categoryId = (string) ($item['categoryId'] ?? '');
+            $createdAtSec = intdiv($createdAtMs, 1000);
+            if ($createdAtSec < 0 || $createdAtSec > time() + 86400) {
+                $createdAtSec = time();
+            }
+            $createdAt = date('Y-m-d H:i:s', $createdAtSec);
+
+            $price = price_field($item['price'] ?? 0, 'Price');
+            $discount = null;
+            if (isset($item['discountPrice']) && $item['discountPrice'] !== '' && (float) $item['discountPrice'] > 0) {
+                $discount = price_field($item['discountPrice'], 'Discount price');
+            }
+            $categoryId = str_field($item['categoryId'] ?? '', 'Category', 64);
 
             $upsert->execute([
                 $id,
                 $categoryId !== '' ? $categoryId : null,
-                (string) ($item['name']['en'] ?? ''),
-                (string) ($item['name']['ar'] ?? ''),
-                (string) ($item['name']['ku'] ?? ''),
-                (string) ($item['description']['en'] ?? ''),
-                (string) ($item['description']['ar'] ?? ''),
-                (string) ($item['description']['ku'] ?? ''),
-                (float) ($item['price'] ?? 0),
+                str_field($item['name']['en'] ?? '', 'Product name (English)', 150),
+                str_field($item['name']['ar'] ?? '', 'Product name (Arabic)', 150),
+                str_field($item['name']['ku'] ?? '', 'Product name (Kurdish)', 150),
+                str_field($item['description']['en'] ?? '', 'Description (English)', 5000),
+                str_field($item['description']['ar'] ?? '', 'Description (Arabic)', 5000),
+                str_field($item['description']['ku'] ?? '', 'Description (Kurdish)', 5000),
+                $price,
                 $discount,
                 $image,
                 !empty($item['isAvailable']) ? 1 : 0,
@@ -171,8 +202,8 @@ if ($resource === 'categories') {
         json_out(list_categories());
     }
     require_admin();
-    $items = body();
-    if (!is_array($items)) fail(400, 'expected an array of categories');
+    $items = body_list();
+    if (count($items) > MAX_ITEMS_PER_SAVE) fail(400, 'too many categories in one save');
     save_categories($items);
     json_out(list_categories());
 }
@@ -183,8 +214,8 @@ if ($resource === 'products') {
         json_out(list_products());
     }
     require_admin();
-    $items = body();
-    if (!is_array($items)) fail(400, 'expected an array of products');
+    $items = body_list();
+    if (count($items) > MAX_ITEMS_PER_SAVE) fail(400, 'too many products in one save');
     save_products($items);
     json_out(list_products());
 }

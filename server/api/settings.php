@@ -41,12 +41,19 @@ $hero  = save_data_uri_image($data['heroImage'] ?? null);
 $about = save_data_uri_image($data['aboutImage'] ?? null);
 $aboutText = is_array($data['aboutText'] ?? null) ? $data['aboutText'] : [];
 
+// Social links end up in an href, so they are checked to be real http(s)
+// addresses — a javascript: URL saved here would run for every visitor.
 $params = [
     $logo, $hero, $about,
-    (string) ($aboutText['en'] ?? ''), (string) ($aboutText['ar'] ?? ''), (string) ($aboutText['ku'] ?? ''),
-    (string) ($data['phone1'] ?? ''), (string) ($data['phone2'] ?? ''),
-    (string) ($data['instagram'] ?? ''), (string) ($data['facebook'] ?? ''), (string) ($data['tiktok'] ?? ''),
-    (string) ($data['googleMapsUrl'] ?? ''),
+    str_field($aboutText['en'] ?? '', 'About text (English)', 2000),
+    str_field($aboutText['ar'] ?? '', 'About text (Arabic)', 2000),
+    str_field($aboutText['ku'] ?? '', 'About text (Kurdish)', 2000),
+    str_field($data['phone1'] ?? '', 'Phone 1', 30),
+    str_field($data['phone2'] ?? '', 'Phone 2', 30),
+    url_field($data['instagram'] ?? '', 'Instagram link'),
+    url_field($data['facebook'] ?? '', 'Facebook link'),
+    url_field($data['tiktok'] ?? '', 'TikTok link'),
+    url_field($data['googleMapsUrl'] ?? '', 'Google Maps link'),
 ];
 
 $sql = db_driver() === 'sqlite'

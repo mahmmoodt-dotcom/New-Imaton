@@ -37,14 +37,17 @@ export const StorageService = {
   // AUTH
   getAuth: async (): Promise<AuthState> => {
     const res = await get('/api/auth.php?action=me');
-    return { isLoggedIn: !!res.admin };
+    return { isLoggedIn: !!res.admin, weakPassword: !!res.admin?.weakPassword };
   },
-  login: async (username: string, password: string): Promise<{ id: number; username: string }> => {
+  login: async (username: string, password: string): Promise<{ id: number; username: string; weakPassword: boolean }> => {
     const res = await post('/api/auth.php?action=login', { username, password });
     return res.admin;
   },
   logout: async (): Promise<void> => {
     await post('/api/auth.php?action=logout', {});
+  },
+  changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
+    await post('/api/auth.php?action=changePassword', { currentPassword, newPassword });
   },
 
   // CATEGORIES

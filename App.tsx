@@ -63,6 +63,8 @@ interface AppContextType {
   globalError: string | null;
   setGlobalError: (err: string | null) => void;
   pendingOrders: number;
+  weakPassword: boolean;
+  setWeakPassword: (v: boolean) => void;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
@@ -83,6 +85,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [pendingOrders, setPendingOrders] = useState(0);
+  const [weakPassword, setWeakPassword] = useState(false);
 
   const t = translations[lang];
 
@@ -96,6 +99,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
         if (authRes.status === 'fulfilled') {
           setIsLoggedInState(authRes.value.isLoggedIn);
+          setWeakPassword(authRes.value.weakPassword);
         }
 
         if (settingsRes.status === 'fulfilled' && settingsRes.value) {
@@ -165,6 +169,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       } catch (e) {
         Logger.error("Logout request failed", e);
       }
+      setWeakPassword(false);
     }
     setIsLoggedInState(v);
   };
@@ -229,7 +234,7 @@ const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     <AppContext.Provider value={{
       lang, setLang, theme, toggleTheme, t, cart, addToCart, removeFromCart, clearCart,
       isLoggedIn, setIsLoggedIn, settings, updateSettings, isSyncing, globalError, setGlobalError,
-      pendingOrders
+      pendingOrders, weakPassword, setWeakPassword
     }}>
       <div
         dir={lang !== 'en' ? 'rtl' : 'ltr'}

@@ -12,7 +12,7 @@ INSERT OR IGNORE INTO settings (
     phone1, phone2, instagram, facebook, tiktok, google_maps_url
 ) VALUES (
     1,
-    '/uploads/imation-logo.png',
+    '/logo.svg',
     'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&q=80&w=1200&h=600',
     'https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=800&h=600',
     'Imation is a computer and electronics shop in Iraq. Quality and reliability are our priorities.',

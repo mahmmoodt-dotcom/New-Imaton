@@ -10,7 +10,7 @@ import { StorageService } from '../../store';
 import { Order, Product, Category } from '../../types';
 
 const AdminDashboard: React.FC = () => {
-  const { setIsLoggedIn, t, settings } = useApp();
+  const { setIsLoggedIn, t, settings, weakPassword } = useApp();
   const navigate = useNavigate();
 
   const [products, setProducts] = useState<Product[]>([]);
@@ -98,6 +98,19 @@ const AdminDashboard: React.FC = () => {
       </aside>
 
       <main className="flex-grow p-6 lg:p-16 overflow-y-auto no-scrollbar">
+        {weakPassword && (
+          <Link
+            to="/admin/settings"
+            className="block mb-10 p-8 rounded-[2.5rem] bg-red-600 text-white shadow-2xl shadow-red-600/30 hover:scale-[1.01] transition-transform"
+          >
+            <p className="font-black text-lg tracking-tight mb-1">Your password is easy to guess</p>
+            <p className="font-bold text-sm text-white/80">
+              Anyone who finds this page could sign in and change your shop. Open Settings and set a
+              real password now.
+            </p>
+          </Link>
+        )}
+
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-16 gap-6">
           <div className="space-y-2">
             <h1 className="text-4xl font-black dark:text-white tracking-tight">{t.adminOverview}</h1>

@@ -96,3 +96,9 @@ CREATE TABLE IF NOT EXISTS settings (
     tiktok           VARCHAR(255),
     google_maps_url  VARCHAR(500)
 );
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+    limit_key    VARCHAR(190) PRIMARY KEY,
+    hits         INTEGER NOT NULL DEFAULT 0,
+    window_start DATETIME NOT NULL
+);

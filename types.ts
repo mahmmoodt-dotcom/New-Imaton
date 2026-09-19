@@ -59,4 +59,6 @@ export interface AppSettings {
 
 export interface AuthState {
   isLoggedIn: boolean;
+  /** True while the account still uses an easily guessed password. */
+  weakPassword: boolean;
 }

@@ -1,11 +1,12 @@
 
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Save, Globe, Phone, Instagram, Facebook, MapPin, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Globe, Phone, Instagram, Facebook, MapPin, Image as ImageIcon, Loader2, Lock, ShieldCheck } from 'lucide-react';
 import { useApp, Logger } from '../../App';
+import { StorageService } from '../../store';
 
 const SettingsAdmin: React.FC = () => {
-  const { settings, updateSettings, t, isSyncing } = useApp();
+  const { settings, updateSettings, t, isSyncing, weakPassword, setWeakPassword } = useApp();
   const [formData, setFormData] = useState({ ...settings });
   const [saveStatus, setSaveStatus] = useState(false);
 
@@ -133,16 +134,115 @@ const SettingsAdmin: React.FC = () => {
             </div>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={isSyncing}
-            className="w-full py-6 bg-brand hover:bg-brand-dark text-white rounded-3xl font-black text-xl shadow-2xl shadow-brand/20 dark:shadow-none flex items-center justify-center gap-3 active:scale-95 transition-all mb-12 disabled:opacity-50"
+            className="w-full py-6 bg-brand hover:bg-brand-dark text-white rounded-3xl font-black text-xl shadow-2xl shadow-brand/20 dark:shadow-none flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
           >
             {isSyncing ? <Loader2 className="animate-spin" /> : <Save size={24} />}
             {isSyncing ? "Syncing..." : t.save}
           </button>
         </form>
+
+        <PasswordCard
+          weakPassword={weakPassword}
+          onChanged={() => setWeakPassword(false)}
+        />
       </div>
+    </div>
+  );
+};
+
+const PasswordCard: React.FC<{ weakPassword: boolean, onChanged: () => void }> = ({ weakPassword, onChanged }) => {
+  const [current, setCurrent] = useState('');
+  const [next, setNext] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [done, setDone] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setDone(false);
+
+    if (next !== confirm) {
+      setError('The two new passwords do not match.');
+      return;
+    }
+    if (next.length < 10) {
+      setError('The new password must be at least 10 characters.');
+      return;
+    }
+
+    setBusy(true);
+    try {
+      await StorageService.changePassword(current, next);
+      setCurrent(''); setNext(''); setConfirm('');
+      setDone(true);
+      onChanged();
+      Logger.info('Admin password changed.');
+    } catch (err: any) {
+      setError(err.message || 'Could not change the password.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={`my-12 p-8 rounded-3xl border shadow-sm ${
+      weakPassword
+        ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30'
+        : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'
+    }`}>
+      <h3 className="font-bold text-xl flex items-center gap-2 dark:text-white mb-2">
+        <Lock size={20} className="text-brand" />
+        Admin password
+      </h3>
+      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 font-medium">
+        {weakPassword
+          ? 'The current password is one anybody would try first. Change it before customers can find this site.'
+          : 'Changing this signs out every other device that is currently signed in.'}
+      </p>
+
+      <form onSubmit={submit} className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-gray-400 uppercase">Current password</label>
+          <input
+            type="password" required autoComplete="current-password"
+            value={current} onChange={e => { setCurrent(e.target.value); setError(''); }}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 rounded-xl border-none dark:text-white"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-gray-400 uppercase">New password</label>
+          <input
+            type="password" required autoComplete="new-password"
+            value={next} onChange={e => { setNext(e.target.value); setError(''); }}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 rounded-xl border-none dark:text-white"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-bold text-gray-400 uppercase">Repeat new password</label>
+          <input
+            type="password" required autoComplete="new-password"
+            value={confirm} onChange={e => { setConfirm(e.target.value); setError(''); }}
+            className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-900 rounded-xl border-none dark:text-white"
+          />
+        </div>
+
+        <div className="sm:col-span-3 flex flex-col sm:flex-row sm:items-center gap-4">
+          <button
+            type="submit" disabled={busy}
+            className="px-8 py-4 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-2xl font-black flex items-center justify-center gap-2 active:scale-95 transition-all disabled:opacity-50"
+          >
+            {busy ? <Loader2 className="animate-spin" size={20} /> : <ShieldCheck size={20} />}
+            Change password
+          </button>
+          {error && <span className="text-red-600 dark:text-red-400 font-bold text-sm">{error}</span>}
+          {done && <span className="text-green-600 dark:text-green-400 font-bold text-sm">Password changed.</span>}
+        </div>
+      </form>
     </div>
   );
 };

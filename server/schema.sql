@@ -98,3 +98,9 @@ CREATE TABLE IF NOT EXISTS settings (
     tiktok           VARCHAR(255),
     google_maps_url  VARCHAR(500)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS rate_limits (
+    limit_key    VARCHAR(190) PRIMARY KEY,
+    hits         INT NOT NULL DEFAULT 0,
+    window_start DATETIME NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
