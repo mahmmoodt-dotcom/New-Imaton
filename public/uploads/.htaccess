@@ -1,0 +1,9 @@
+# Uploaded product photos are served as plain files. Nothing in this
+# folder is ever run as a script, even if a file somehow arrives with a
+# script extension.
+<FilesMatch "\.(php|phtml|phar|pl|py|cgi|sh)(\.|$)">
+  Require all denied
+</FilesMatch>
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>

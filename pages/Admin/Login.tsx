@@ -1,15 +1,16 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
-import { Lock, User, Eye, EyeOff } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useApp, Logger } from '../../App';
 import { StorageService } from '../../store';
 
 const AdminLogin: React.FC = () => {
-  const { isLoggedIn, setIsLoggedIn, settings, t } = useApp();
+  const { isLoggedIn, setIsLoggedIn, t } = useApp();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,14 +19,18 @@ const AdminLogin: React.FC = () => {
 
   if (isLoggedIn) return <Navigate to="/admin" />;
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123') {
-      StorageService.setAuth({ isLoggedIn: true });
+    setError('');
+    setIsSubmitting(true);
+    try {
+      await StorageService.login(username.trim(), password);
       setIsLoggedIn(true);
       navigate('/admin');
-    } else {
-      setError('Incorrect password. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Incorrect username or password. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -43,25 +48,29 @@ const AdminLogin: React.FC = () => {
           <div className="space-y-4">
             <div className="relative">
               <User className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input 
-                disabled
-                type="text" 
-                value={t.administrator}
-                className="w-full pl-16 pr-6 py-6 bg-white/10 rounded-[2rem] font-black text-gray-400 outline-none border border-white/5 transition-all cursor-not-allowed"
+              <input
+                required
+                type="text"
+                autoComplete="username"
+                placeholder={t.administrator}
+                value={username}
+                onChange={(e) => { setUsername(e.target.value); setError(''); }}
+                className={`w-full pl-16 pr-6 py-6 bg-white/10 rounded-[2rem] outline-none border dark:text-white font-black transition-all ${error ? 'border-red-500' : 'border-white/5 focus:border-brand'}`}
               />
             </div>
             <div className="relative">
               <Lock className="absolute left-6 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <input 
+              <input
                 required
-                type={showPassword ? "text" : "password"} 
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
                 placeholder={`${t.password}`}
                 value={password}
                 onChange={(e) => { setPassword(e.target.value); setError(''); }}
                 className={`w-full pl-16 pr-16 py-6 bg-white/10 rounded-[2rem] outline-none border dark:text-white font-black transition-all ${error ? 'border-red-500' : 'border-white/5 focus:border-brand'}`}
               />
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-400 hover:text-brand transition-colors"
               >
@@ -72,11 +81,12 @@ const AdminLogin: React.FC = () => {
 
           {error && <p className="text-red-500 text-sm font-black text-center animate-pulse">{error}</p>}
 
-          <button 
+          <button
             type="submit"
-            className="w-full py-6 bg-brand hover:bg-brand-dark text-white rounded-[2.5rem] font-black text-lg transition-all shadow-2xl shadow-brand/30 active:scale-95"
+            disabled={isSubmitting}
+            className="w-full py-6 bg-brand hover:bg-brand-dark text-white rounded-[2.5rem] font-black text-lg transition-all shadow-2xl shadow-brand/30 active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
           >
-            {t.signIn}
+            {isSubmitting ? <Loader2 className="animate-spin" /> : t.signIn}
           </button>
         </form>
       </div>

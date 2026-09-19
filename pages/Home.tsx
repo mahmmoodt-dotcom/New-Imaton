@@ -54,14 +54,11 @@ const HomePage: React.FC = () => {
             <div className="flex flex-col animate-text-entrance">
               <div className="mb-10 flex justify-start">
                 <div className="p-4 windowy-glass rounded-[2rem] border-white/20 animate-logo-pulse">
-                  <img 
-                    src={settings.logo} 
-                    alt="Imation Logo" 
+                  <img
+                    src={settings.logo}
+                    alt="Imation Logo"
                     className="h-12 lg:h-16 w-auto object-contain"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Imation_logo.svg/1024px-Imation_logo.svg.png";
-                    }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                   />
                 </div>
               </div>

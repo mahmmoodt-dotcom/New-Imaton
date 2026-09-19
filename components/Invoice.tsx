@@ -35,13 +35,11 @@ const Invoice: React.FC<InvoiceProps> = ({ order, settings, lang }) => {
           </div>
         </div>
         <div className="text-right">
-          <img 
-            src={settings.logo} 
-            className="h-20 ml-auto mb-6 object-contain" 
-            alt="Imation Logo" 
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = "https://upload.wikimedia.org/wikipedia/commons/thumb/3/30/Imation_logo.svg/1024px-Imation_logo.svg.png";
-            }}
+          <img
+            src={settings.logo}
+            className="h-20 ml-auto mb-6 object-contain"
+            alt="Imation Logo"
+            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
           />
           <h2 className="text-3xl font-black tracking-tight">Imation Computer Shop</h2>
           <p className="font-bold text-gray-600">{settings.phone1}</p>
@@ -131,9 +129,8 @@ const Invoice: React.FC<InvoiceProps> = ({ order, settings, lang }) => {
             Imation Iraq • Technology Redefined
           </p>
           <div className="flex justify-center gap-8 text-[10px] font-black uppercase text-gray-500">
-            <span>Baghdad, Iraq</span>
+            {settings.phone1 && <span>{settings.phone1}</span>}
             <span>Warranty Supported</span>
-            <span>24/7 Support</span>
           </div>
         </div>
       </div>

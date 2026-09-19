@@ -1,7 +1,0 @@
-{
-  "name": "IraqTech Computer Shop",
-  "description": "A comprehensive e-commerce platform for computer and electronics in Iraq, featuring multi-language support (English, Arabic, Kurdish), order tracking, and a full admin dashboard.",
-  "requestFramePermissions": [
-    "camera"
-  ]
-}

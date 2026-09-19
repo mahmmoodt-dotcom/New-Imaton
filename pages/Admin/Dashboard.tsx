@@ -48,9 +48,8 @@ const AdminDashboard: React.FC = () => {
     revenue: orders.filter(o => o.status === 'Delivered').reduce((acc, curr) => acc + curr.totalAmount, 0)
   }), [orders]);
 
-  const handleLogout = () => {
-    StorageService.setAuth({ isLoggedIn: false });
-    setIsLoggedIn(false);
+  const handleLogout = async () => {
+    await setIsLoggedIn(false);
     navigate('/admin/login');
   };
 
@@ -74,7 +73,7 @@ const AdminDashboard: React.FC = () => {
       <aside className="hidden lg:flex w-80 windowy-glass border-r border-white/10 flex-col sticky top-0 h-screen rounded-none">
         <div className="p-10 border-b border-white/5 flex items-center gap-4">
           <div className="w-14 h-10 bg-white/10 rounded-xl flex-shrink-0 p-1">
-             <img src={settings.logo} className="w-full h-full object-contain" alt="Imation" />
+             <img src={settings.logo} className="w-full h-full object-contain" alt="Imation" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
           <span className="font-black text-2xl tracking-tighter dark:text-white">IMATION</span>
         </div>

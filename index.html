@@ -1,109 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Imation - Computer & Electronics</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta name="description" content="Imation - Computer hardware, laptops and electronics in Iraq, with cash-on-delivery ordering and order tracking.">
+    <link rel="icon" type="image/png" href="/uploads/imation-logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;700&display=swap" rel="stylesheet">
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    fontFamily: {
-                        inter: ['Inter', 'sans-serif'],
-                        arabic: ['Noto Sans Arabic', 'sans-serif'],
-                    },
-                    colors: {
-                        brand: {
-                            DEFAULT: '#e31b23',
-                            light: '#ff4d4d',
-                            dark: '#b3151b',
-                        }
-                    },
-                    animation: {
-                        'neon-shimmer': 'neon-shimmer 3s ease-in-out infinite',
-                        'float': 'float 6s ease-in-out infinite',
-                        'hero-entrance': 'heroEntrance 1s ease-out forwards',
-                        'text-entrance': 'textEntrance 0.8s ease-out forwards',
-                        'shine': 'shine 4s infinite linear',
-                        'logo-pulse': 'logoPulse 4s ease-in-out infinite',
-                    },
-                    keyframes: {
-                        'neon-shimmer': {
-                            '0%, 100%': { filter: 'drop-shadow(0 0 5px rgba(227, 27, 35, 0.2))', transform: 'scale(1)' },
-                            '50%': { filter: 'drop-shadow(0 0 20px rgba(227, 27, 35, 0.6))', transform: 'scale(1.02)' },
-                        },
-                        'float': { '0%, 100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-12px)' } },
-                        'logoPulse': { '0%, 100%': { transform: 'scale(1)' }, '50%': { transform: 'scale(1.05)' } },
-                        'heroEntrance': { '0%': { opacity: '0', transform: 'scale(0.98)' }, '100%': { opacity: '1', transform: 'scale(1)' } },
-                        'textEntrance': { '0%': { opacity: '0', transform: 'translateY(20px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } },
-                        'shine': { '0%': { left: '-100%' }, '40%': { left: '100%' }, '100%': { left: '100%' } }
-                    }
-                },
-            },
-        }
-    </script>
-    <style>
-        :root { --bg-light: #ffffff; --bg-dark: #0f1115; }
-        body { font-family: 'Inter', 'Noto Sans Arabic', sans-serif; overflow-x: hidden; background-color: var(--bg-light); transition: background-color 0.5s ease; }
-        .dark body { background-color: var(--bg-dark); color: #f3f4f6; }
-        .rtl { direction: rtl; }
-        .windowy-glass {
-            background: rgba(255, 255, 255, 0.55);
-            backdrop-filter: blur(20px) saturate(190%);
-            -webkit-backdrop-filter: blur(20px) saturate(190%);
-            border: 1px solid rgba(255, 255, 255, 0.4);
-            box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
-        }
-        .dark .windowy-glass {
-            background: rgba(22, 24, 30, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        /* Print styles */
-        @media print {
-            body * {
-                visibility: hidden;
-            }
-            #print-area, #print-area * {
-                visibility: visible;
-            }
-            #print-area {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-                background: white !important;
-                color: black !important;
-                padding: 0 !important;
-                margin: 0 !important;
-            }
-            .no-print {
-                display: none !important;
-            }
-        }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.90.1",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "vite": "https://esm.sh/vite@^7.3.1",
-    "react-router-dom": "https://esm.sh/react-router-dom@^7.12.0"
-  }
-}
-</script>
 </head>
 <body class="text-gray-900 dark:text-gray-100">
     <div id="root"></div>
-    <!-- Vite Entry Point -->
     <script type="module" src="/index.tsx"></script>
 </body>
 </html>

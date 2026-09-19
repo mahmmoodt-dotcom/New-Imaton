@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Phone, MapPin, Instagram, Facebook, Mail, Clock } from 'lucide-react';
+import { Phone, MapPin, Instagram, Facebook, Clock } from 'lucide-react';
 import { useApp } from '../App';
 
 const TikTokIcon = ({ size = 24 }: { size?: number }) => (
@@ -36,7 +36,7 @@ const AboutPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
           <div className="order-2 lg:order-1 space-y-8">
             <div className="p-4 bg-brand/5 dark:bg-brand/10 border-l-4 border-brand rounded-r-2xl">
-              <h2 className="text-3xl font-bold mb-4 dark:text-white">Our Story</h2>
+              <h2 className="text-3xl font-bold mb-4 dark:text-white">{t.ourStory}</h2>
               <p className="text-lg text-gray-600 dark:text-gray-400 leading-relaxed italic">
                 "{settings.aboutText[lang]}"
               </p>
@@ -46,23 +46,27 @@ const AboutPage: React.FC = () => {
               <div className="space-y-4">
                 <h3 className="font-bold text-xl flex items-center gap-2 dark:text-white">
                   <Phone size={20} className="text-brand" />
-                  Contact Info
+                  {t.contactInfo}
                 </h3>
                 <ul className="space-y-2 text-gray-600 dark:text-gray-400 font-medium">
-                  <li className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-brand rounded-full"></span>
-                    {settings.phone1}
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <span className="w-2 h-2 bg-brand rounded-full"></span>
-                    {settings.phone2}
-                  </li>
+                  {settings.phone1 && (
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-brand rounded-full"></span>
+                      {settings.phone1}
+                    </li>
+                  )}
+                  {settings.phone2 && (
+                    <li className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-brand rounded-full"></span>
+                      {settings.phone2}
+                    </li>
+                  )}
                 </ul>
               </div>
               <div className="space-y-4">
                 <h3 className="font-bold text-xl flex items-center gap-2 dark:text-white">
                   <Clock size={20} className="text-brand" />
-                  Business Hours
+                  {t.businessHours}
                 </h3>
                 <ul className="space-y-2 text-gray-600 dark:text-gray-400 font-medium">
                   <li>The store is open all week</li>
@@ -72,18 +76,21 @@ const AboutPage: React.FC = () => {
             </div>
 
             <div className="pt-8 flex flex-wrap gap-4">
-              <a href={settings.facebook} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-brand hover:text-white transition-all shadow-md">
-                <Facebook size={24} />
-              </a>
-              <a href={settings.instagram} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-pink-600 hover:text-white transition-all shadow-md">
-                <Instagram size={24} />
-              </a>
-              <a href={settings.tiktok} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-black hover:text-white transition-all shadow-md">
-                <TikTokIcon size={24} />
-              </a>
-              <a href={`mailto:info@imation.com`} className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-gray-900 hover:text-white transition-all shadow-md">
-                <Mail size={24} />
-              </a>
+              {settings.facebook && (
+                <a href={settings.facebook} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-brand hover:text-white transition-all shadow-md">
+                  <Facebook size={24} />
+                </a>
+              )}
+              {settings.instagram && (
+                <a href={settings.instagram} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-pink-600 hover:text-white transition-all shadow-md">
+                  <Instagram size={24} />
+                </a>
+              )}
+              {settings.tiktok && (
+                <a href={settings.tiktok} target="_blank" rel="noopener noreferrer" className="p-4 bg-gray-100 dark:bg-gray-800 dark:text-white rounded-2xl hover:bg-black hover:text-white transition-all shadow-md">
+                  <TikTokIcon size={24} />
+                </a>
+              )}
             </div>
           </div>
           <div className="order-1 lg:order-2">
@@ -103,23 +110,34 @@ const AboutPage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white dark:bg-gray-800 rounded-3xl border border-gray-100 dark:border-gray-700 overflow-hidden p-2 transition-colors">
           <div className="h-[450px] w-full rounded-2xl bg-gray-100 dark:bg-gray-900 flex items-center justify-center relative">
-            <iframe 
-              src={settings.googleMapsUrl} 
-              width="100%" 
-              height="100%" 
-              style={{ border: 0, borderRadius: '1rem' }} 
-              allowFullScreen={true} 
-              loading="lazy" 
-              referrerPolicy="no-referrer-when-downgrade"
-              title="Google Maps Location"
-            ></iframe>
+            {/* Only Google's dedicated "embed" URLs are allowed to render inside
+                an iframe; a plain maps.google.com or share.google link is
+                refused by Google and would just show a blank frame. */}
+            {settings.googleMapsUrl?.includes('/maps/embed') ? (
+              <iframe
+                src={settings.googleMapsUrl}
+                width="100%"
+                height="100%"
+                style={{ border: 0, borderRadius: '1rem' }}
+                allowFullScreen={true}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                title="Google Maps Location"
+              ></iframe>
+            ) : (
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+                <MapPin size={40} />
+                <p className="text-sm font-bold">Open our location in Google Maps</p>
+              </div>
+            )}
             <div className="absolute bottom-8 right-8 bg-white dark:bg-gray-900 p-6 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-700 hidden md:block max-w-xs transition-colors">
               <h3 className="font-bold text-lg mb-2 flex items-center gap-2 dark:text-white">
                 <MapPin className="text-brand" size={18} />
-                Visit Our Showroom
+                {t.visitShowroom}
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Main Tech Street, Industrial Zone, Baghdad, Iraq</p>
-              <button onClick={() => window.open(settings.googleMapsUrl)} className="mt-4 w-full py-2 bg-brand text-white rounded-xl text-sm font-bold active:scale-95 transition-all">Get Directions</button>
+              {settings.googleMapsUrl && (
+                <button onClick={() => window.open(settings.googleMapsUrl, '_blank')} className="mt-2 w-full py-2 bg-brand text-white rounded-xl text-sm font-bold active:scale-95 transition-all">{t.getDirections}</button>
+              )}
             </div>
           </div>
         </div>

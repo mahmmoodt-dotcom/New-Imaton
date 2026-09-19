@@ -151,7 +151,7 @@ const AssetUpload: React.FC<{ label: string, image: string, onUpload: (e: any) =
   <div className="bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-700 space-y-4 shadow-sm">
     <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">{label}</h3>
     <div className={`relative ${aspect} bg-gray-50 dark:bg-gray-900 rounded-2xl overflow-hidden border-2 border-dashed border-gray-200 dark:border-gray-700 group cursor-pointer`}>
-      <img src={image} alt={label} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
+      <img src={image} alt={label} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" onError={(e) => { (e.target as HTMLImageElement).style.visibility = 'hidden'; }} />
       <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
         <ImageIcon className="text-white mb-2" size={32} />
         <span className="text-white text-xs font-bold uppercase">Replace Asset</span>

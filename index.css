@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+/* The app toggles a `.dark` class on <html> itself (see App.tsx), so dark:
+   utilities must follow that class rather than the OS's color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-inter: 'Inter', sans-serif;
+  --font-arabic: 'Noto Sans Arabic', sans-serif;
+
+  --color-brand: #e31b23;
+  --color-brand-light: #ff4d4d;
+  --color-brand-dark: #b3151b;
+
+  --animate-neon-shimmer: neon-shimmer 3s ease-in-out infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-hero-entrance: hero-entrance 1s ease-out forwards;
+  --animate-text-entrance: text-entrance 0.8s ease-out forwards;
+  --animate-logo-pulse: logo-pulse 4s ease-in-out infinite;
+}
+
+@keyframes neon-shimmer {
+  0%, 100% { filter: drop-shadow(0 0 5px rgba(227, 27, 35, 0.2)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 20px rgba(227, 27, 35, 0.6)); transform: scale(1.02); }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@keyframes logo-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+@keyframes hero-entrance {
+  0% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes text-entrance {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+:root { --bg-light: #ffffff; --bg-dark: #0f1115; }
+
+body {
+  font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
+  overflow-x: hidden;
+  background-color: var(--bg-light);
+  transition: background-color 0.5s ease;
+}
+.dark body { background-color: var(--bg-dark); }
+
+.rtl { direction: rtl; }
+
+.windowy-glass {
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(20px) saturate(190%);
+  -webkit-backdrop-filter: blur(20px) saturate(190%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
+}
+.dark .windowy-glass {
+  background: rgba(22, 24, 30, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media print {
+  body * { visibility: hidden; }
+  #print-area, #print-area * { visibility: visible; }
+  #print-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .no-print { display: none !important; }
+}

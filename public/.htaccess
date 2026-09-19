@@ -1,0 +1,66 @@
+# Imation — Hostinger (Apache)
+
+# No directory listings anywhere — uploads/ would otherwise show every photo.
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+
+  # Nothing under a .git checkout or the local-dev database folder is ever
+  # served, even if it is uploaded by mistake.
+  RewriteRule ^(\.git|server/data)(/|$) - [F,L]
+
+  # lib/ is included by the endpoints in api/, never requested directly.
+  # PHP executes it rather than printing it, so this leaks nothing today —
+  # it is here so a future server without PHP enabled cannot serve it as text.
+  RewriteRule ^lib/ - [F,L]
+
+  # Uploaded files are images only; a script extension under /uploads is
+  # refused outright, whatever the upload check decided.
+  RewriteRule ^uploads/.*\.(php|phtml|phar|pl|py|cgi|sh)(\.|$) - [F,L,NC]
+
+  # Never rewrite the API or uploaded files.
+  RewriteCond %{REQUEST_URI} ^/(api|uploads)/ [OR]
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # The app uses hash-based routing (#/shop, #/admin, ...), so the browser
+  # never asks the server for those paths — but a stray direct request for
+  # anything else still gets the app shell instead of a bare Apache 404.
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Never serve server-side files, even if they are placed in the web root:
+# the config (database password), any SQL or SQLite database file, and the
+# local-dev helper scripts.
+<FilesMatch "^(config(\.example)?\.php|local-sqlite-init\.php|router\.php)$|\.(sql|sqlite|sqlite3|db)$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # Turn this on ONLY once https://yourdomain.com is confirmed working with
+  # the SSL certificate from hPanel. It tells browsers to refuse plain http
+  # for a year, so enabling it while https is broken locks visitors out.
+  # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css                "access plus 1 year"
+  ExpiresByType application/javascript  "access plus 1 year"
+  ExpiresByType image/jpeg              "access plus 1 month"
+  ExpiresByType image/png               "access plus 1 month"
+  ExpiresByType image/webp              "access plus 1 month"
+  ExpiresByType image/svg+xml           "access plus 1 month"
+  # The HTML shell must always be revalidated, or updates never reach anyone.
+  ExpiresByType text/html               "access plus 0 seconds"
+</IfModule>
